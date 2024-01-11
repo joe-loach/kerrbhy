@@ -1,5 +1,26 @@
 [workspace]
 members = [
-    "crates/*"
+    "crates/*",
+    "sim",
 ]
+resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# local crates
+event = { path = "crates/event" }
+graphics = { path = "crates/graphics" }
+
+# shared dependencies
+
+# graphics
+wgpu = { version = "0.18" }
+winit = { version = "0.29", features = ["rwh_05"] }
+
+# error handling
+thiserror = "1.0"
+anyhow = "1.0"

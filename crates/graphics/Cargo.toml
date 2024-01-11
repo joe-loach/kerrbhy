@@ -1,0 +1,11 @@
+[package]
+name = "graphics"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+wgpu = { workspace = true }
+winit = { workspace = true }
+thiserror = { workspace = true }
+pollster = "0.3.0"

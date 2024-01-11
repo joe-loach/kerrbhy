@@ -1,0 +1,11 @@
+[package]
+name = "sim"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+event = { workspace = true }
+graphics = { workspace = true }
+winit = { workspace = true }
+anyhow = { workspace = true }

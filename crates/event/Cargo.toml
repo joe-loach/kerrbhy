@@ -1,0 +1,10 @@
+[package]
+name = "event"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+graphics = { path = "../graphics" }
+winit = { workspace = true }
+thiserror = { workspace = true }
