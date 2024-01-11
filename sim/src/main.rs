@@ -24,7 +24,7 @@ impl EventHandler for State {
 
 fn main() -> anyhow::Result<()> {
     let event_loop = event::EventLoopBuilder::with_user_event().build()?;
-    let window = winit::window::WindowBuilder::new().with_title("Orbital");
+    let window = winit::window::WindowBuilder::new().with_title("Kerrbhy");
 
     let window = window.with_inner_size(winit::dpi::PhysicalSize::new(1920, 1080));
 
