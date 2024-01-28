@@ -36,6 +36,11 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+    pub fn dimensions(&self) -> (u32, u32) {
+        // both dimensions are guaranteed to be greater than 0
+        (self.surface.width, self.surface.height)
+    }
+
     pub fn device(&self) -> &Device {
         self.device
     }
@@ -100,8 +105,8 @@ where
         desired_maximum_frame_latency: 2,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: ctx.formats()[0],
-        width: size.width,
-        height: size.height,
+        width: size.width.max(1),
+        height: size.height.max(1),
         present_mode: wgpu::PresentMode::Fifo,
         alpha_mode: ctx.capabilities().alpha_modes[0],
         view_formats: vec![],
@@ -137,12 +142,7 @@ where
 
                 match event {
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                        // get the new size
-                        let size = window.inner_size();
-                        // update the surface
-                        config.width = size.width.max(1);
-                        config.height = size.height.max(1);
-                        surface.configure(device, &config);
+                        reconfigure(&window, surface, &mut config, device);
                         // On macos the window needs to be redrawn manually after resizing
                         window.request_redraw();
                     }
@@ -153,29 +153,39 @@ where
                     WindowEvent::RedrawRequested => {
                         timer.tick();
 
-                        let mut context = Context {
-                            device,
-                            queue,
-                            window: &window,
-                            timer: &timer,
-                            surface: &config,
-                        };
+                        let mut frame = surface.get_current_texture();
 
-                        state.update(&mut context);
+                        if let Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) = frame
+                        {
+                            reconfigure(&window, surface, &mut config, device);
+                            frame = surface.get_current_texture();
+                        }
 
-                        let frame = surface
-                            .get_current_texture()
-                            .expect("Failed to acquire next swap chain texture");
+                        if let Err(wgpu::SurfaceError::OutOfMemory) = frame {
+                            target.exit()
+                        }
 
-                        let target = frame.texture.create_view(&Default::default());
+                        if let Ok(frame) = frame {
+                            let mut context = Context {
+                                device,
+                                queue,
+                                window: &window,
+                                timer: &timer,
+                                surface: &config,
+                            };
 
-                        let mut encoder =
-                            device.create_command_encoder(&CommandEncoderDescriptor::default());
+                            state.update(&mut context);
 
-                        state.draw(&mut context, &mut encoder, &target);
+                            let target = frame.texture.create_view(&Default::default());
 
-                        queue.submit(Some(encoder.finish()));
-                        frame.present();
+                            let mut encoder =
+                                device.create_command_encoder(&CommandEncoderDescriptor::default());
+
+                            state.draw(&mut context, &mut encoder, &target);
+
+                            queue.submit(Some(encoder.finish()));
+                            frame.present();
+                        }
                     }
                     _ => (),
                 }
@@ -191,4 +201,17 @@ where
     let _ = ctx;
 
     Ok(())
+}
+
+fn reconfigure(
+    window: &Window,
+    surface: &wgpu::Surface,
+    config: &mut SurfaceConfiguration,
+    device: &wgpu::Device,
+) {
+    let size = window.inner_size();
+    // update the surface
+    config.width = size.width.max(1);
+    config.height = size.height.max(1);
+    surface.configure(device, config);
 }

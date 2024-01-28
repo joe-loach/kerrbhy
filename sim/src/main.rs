@@ -3,8 +3,10 @@ mod fullscreen;
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use graphics::wgpu;
-use gui::Gui;
-use gui::egui;
+use gui::{
+    egui,
+    Gui,
+};
 use marcher::Marcher;
 use winit::event_loop::EventLoop;
 
@@ -35,7 +37,7 @@ impl State {
 
 impl EventHandler for State {
     fn update(&mut self, ctx: &mut event::Context) {
-        let [width, height] = ctx.window().inner_size().into();
+        let (width, height) = ctx.dimensions();
         self.marcher.update(ctx.device(), width, height);
 
         {
