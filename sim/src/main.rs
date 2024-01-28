@@ -3,23 +3,33 @@ mod fullscreen;
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use graphics::wgpu;
+use gui::Gui;
+use gui::egui;
 use marcher::Marcher;
 use winit::event_loop::EventLoop;
 
 struct State {
     marcher: Marcher,
     fullscreen: Fullscreen,
+    gui: Gui,
 }
 
 impl State {
     fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
         let marcher = Marcher::new(ctx.device());
         let fullscreen = Fullscreen::new(ctx);
-
+        let gui = Gui::new(ctx);
         Self {
             marcher,
             fullscreen,
+            gui,
         }
+    }
+
+    fn ui(&mut self, ctx: egui::Context) {
+        egui::Window::new("Kerrbhy").show(&ctx, |ui| {
+            ui.label("Hey");
+        });
     }
 }
 
@@ -27,6 +37,12 @@ impl EventHandler for State {
     fn update(&mut self, ctx: &mut event::Context) {
         let [width, height] = ctx.window().inner_size().into();
         self.marcher.update(ctx.device(), width, height);
+
+        {
+            let ctx = self.gui.begin();
+            self.ui(ctx);
+        }
+        self.gui.end(ctx);
     }
 
     fn draw(
@@ -38,6 +54,11 @@ impl EventHandler for State {
         self.marcher.draw(ctx, encoder);
         self.fullscreen
             .draw(ctx.device(), encoder, &self.marcher.view(), target);
+        self.gui.draw(ctx, encoder, target);
+    }
+
+    fn event(&mut self, event: event::Event<()>) -> bool {
+        self.gui.handle_event(&event)
     }
 }
 

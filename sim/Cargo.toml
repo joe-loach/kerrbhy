@@ -8,6 +8,7 @@ version.workspace = true
 event = { workspace = true }
 graphics = { workspace = true }
 marcher = { workspace = true }
+gui = { workspace = true }
 
 winit = { workspace = true }
 anyhow = { workspace = true }
