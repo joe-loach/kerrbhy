@@ -24,7 +24,10 @@ impl State {
 }
 
 impl EventHandler for State {
-    fn update(&mut self, _ctx: &mut event::Context) {}
+    fn update(&mut self, ctx: &mut event::Context) {
+        let [width, height] = ctx.window().inner_size().into();
+        self.marcher.update(ctx.device(), width, height);
+    }
 
     fn draw(
         &mut self,
