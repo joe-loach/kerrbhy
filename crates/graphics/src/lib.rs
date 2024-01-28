@@ -1,16 +1,28 @@
 mod error;
 
+use std::sync::Arc;
+
 pub use error::Error as ContextError;
 pub use wgpu;
-use wgpu::{Adapter, Device, Queue, Surface, SurfaceCapabilities, TextureFormat};
+use wgpu::{
+    Adapter,
+    Device,
+    Queue,
+    Surface,
+    SurfaceCapabilities,
+    TextureFormat,
+};
 use winit::{
     event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    window::{
+        Window,
+        WindowBuilder,
+    },
 };
 
 pub struct Context {
-    window: Window,
-    surface: Surface,
+    window: Arc<Window>,
+    surface: Surface<'static>,
 
     adapter: Adapter,
     device: Device,
@@ -26,14 +38,14 @@ impl Context {
         features: impl FnOnce(&wgpu::Adapter) -> wgpu::Features,
         limits: wgpu::Limits,
     ) -> Result<Self, ContextError> {
-        let window = window.with_visible(false).build(event_loop)?;
+        let window = Arc::new(window.with_visible(false).build(event_loop)?);
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
         });
 
-        let surface = unsafe { instance.create_surface(&window) }?;
+        let surface = instance.create_surface(Arc::clone(&window))?;
 
         let (adapter, device, queue) = pollster::block_on(async {
             let adapter = instance
@@ -56,8 +68,8 @@ impl Context {
                 .request_device(
                     &wgpu::DeviceDescriptor {
                         label: None,
-                        features: features(&adapter),
-                        limits: adapter_limits,
+                        required_features: features(&adapter),
+                        required_limits: adapter_limits,
                     },
                     None,
                 )
@@ -80,8 +92,8 @@ impl Context {
         })
     }
 
-    pub fn window(&self) -> &Window {
-        &self.window
+    pub fn window(&self) -> Arc<Window> {
+        Arc::clone(&self.window)
     }
 
     pub fn surface(&self) -> &Surface {

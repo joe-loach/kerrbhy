@@ -5,3 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+graphics = { workspace = true }
+event = { workspace = true }
+
+memoffset = { workspace = true }
+bytemuck = { workspace = true }
+
+[build-dependencies]
+shader-bindings = { workspace = true }

@@ -1,17 +1,30 @@
+mod fullscreen;
+
 use event::EventHandler;
+use fullscreen::Fullscreen;
 use graphics::wgpu;
+use marcher::Marcher;
 use winit::event_loop::EventLoop;
 
-struct State {}
+struct State {
+    marcher: Marcher,
+    fullscreen: Fullscreen,
+}
 
 impl State {
-    fn new<T>(event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
-        Self {}
+    fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
+        let marcher = Marcher::new(ctx.device());
+        let fullscreen = Fullscreen::new(ctx);
+
+        Self {
+            marcher,
+            fullscreen,
+        }
     }
 }
 
 impl EventHandler for State {
-    fn update(&mut self, ctx: &mut event::Context) {}
+    fn update(&mut self, _ctx: &mut event::Context) {}
 
     fn draw(
         &mut self,
@@ -19,6 +32,9 @@ impl EventHandler for State {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
+        self.marcher.draw(ctx, encoder);
+        self.fullscreen
+            .draw(ctx.device(), encoder, &self.marcher.view(), target);
     }
 }
 

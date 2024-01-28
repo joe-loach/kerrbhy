@@ -4,13 +4,24 @@ mod timer;
 use error::RunError;
 use graphics::{
     wgpu,
-    wgpu::{CommandEncoderDescriptor, Device, Queue, SurfaceConfiguration},
+    wgpu::{
+        CommandEncoderDescriptor,
+        Device,
+        Queue,
+        SurfaceConfiguration,
+    },
 };
 use timer::Timer;
 pub use winit::event_loop::EventLoopBuilder;
 use winit::{
-    event::{Event as WEvent, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event::{
+        Event as WEvent,
+        WindowEvent,
+    },
+    event_loop::{
+        ControlFlow,
+        EventLoop,
+    },
     window::Window,
 };
 
@@ -86,6 +97,7 @@ where
     let size = window.inner_size();
 
     let mut config = SurfaceConfiguration {
+        desired_maximum_frame_latency: 2,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: ctx.formats()[0],
         width: size.width,
@@ -144,7 +156,7 @@ where
                         let mut context = Context {
                             device,
                             queue,
-                            window,
+                            window: &window,
                             timer: &timer,
                             surface: &config,
                         };

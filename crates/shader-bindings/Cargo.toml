@@ -1,0 +1,10 @@
+[package]
+name = "shader-bindings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wgsl_to_wgpu = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }

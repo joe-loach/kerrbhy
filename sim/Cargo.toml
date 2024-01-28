@@ -7,5 +7,10 @@ version.workspace = true
 [dependencies]
 event = { workspace = true }
 graphics = { workspace = true }
+marcher = { workspace = true }
+
 winit = { workspace = true }
 anyhow = { workspace = true }
+
+[build-dependencies]
+shader-bindings = { workspace = true }

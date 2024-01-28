@@ -1,6 +1,12 @@
 use thiserror::Error;
-use wgpu::{CreateSurfaceError, RequestDeviceError};
-use winit::error::{EventLoopError, OsError};
+use wgpu::{
+    CreateSurfaceError,
+    RequestDeviceError,
+};
+use winit::error::{
+    EventLoopError,
+    OsError,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
