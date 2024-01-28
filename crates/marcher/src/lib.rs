@@ -62,7 +62,9 @@ impl Marcher {
         );
 
         let [x, y, _z] = shader::compute::COMP_WORKGROUP_SIZE;
-        pass.dispatch_workgroups(width / x, height / y, 1);
+        let x = (width as f32 / x as f32).ceil() as u32;
+        let y = (height as f32 / y as f32).ceil() as u32;
+        pass.dispatch_workgroups(x, y, 1);
     }
 }
 
