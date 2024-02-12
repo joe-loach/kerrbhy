@@ -47,7 +47,7 @@ impl Gui {
             Some(ctx.device().limits().max_texture_dimension_2d as usize),
         );
 
-        let renderer = renderer::Renderer::new(ctx.device(), ctx.view_format(), None, 1);
+        let renderer = renderer::Renderer::new(&ctx.device(), ctx.view_format(), None, 1);
 
         Self {
             window,
@@ -72,7 +72,7 @@ impl Gui {
         ctx
     }
 
-    pub fn end(&mut self, ctx: &event::Context) {
+    pub fn end(&mut self) {
         let FullOutput {
             platform_output,
             textures_delta,
@@ -85,7 +85,7 @@ impl Gui {
         self.pixels_per_point = pixels_per_point;
 
         self.state
-            .handle_platform_output(ctx.window(), platform_output);
+            .handle_platform_output(&self.window, platform_output);
 
         self.partial = Some(PartialOutput {
             textures_delta,
@@ -95,10 +95,13 @@ impl Gui {
 
     pub fn draw(
         &mut self,
-        ctx: &mut event::Context,
+        ctx: &event::State,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
+        let device = &ctx.device();
+        let queue = &ctx.queue();
+
         let PartialOutput {
             textures_delta,
             shapes,
@@ -108,8 +111,7 @@ impl Gui {
             .expect("need to call `update` before `draw`");
 
         for (id, delta) in textures_delta.set {
-            self.renderer
-                .update_texture(ctx.device(), ctx.queue(), id, &delta);
+            self.renderer.update_texture(device, queue, id, &delta);
         }
 
         let paint_jobs = self.context().tessellate(shapes, self.pixels_per_point);
@@ -121,8 +123,8 @@ impl Gui {
         };
 
         self.renderer.update_buffers(
-            ctx.device(),
-            ctx.queue(),
+            device,
+            queue,
             encoder,
             paint_jobs.as_slice(),
             screen_descriptor,

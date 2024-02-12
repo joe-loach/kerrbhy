@@ -25,8 +25,8 @@ pub struct Context {
     surface: Surface<'static>,
 
     adapter: Adapter,
-    device: Device,
-    queue: Queue,
+    device: Arc<Device>,
+    queue: Arc<Queue>,
 
     capabilities: SurfaceCapabilities,
 }
@@ -80,6 +80,9 @@ impl Context {
 
         let capabilities = surface.get_capabilities(&adapter);
 
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
         Ok(Context {
             window,
             surface,
@@ -104,12 +107,12 @@ impl Context {
         &self.adapter
     }
 
-    pub fn device(&self) -> &Device {
-        &self.device
+    pub fn device(&self) -> Arc<Device> {
+        Arc::clone(&self.device)
     }
 
-    pub fn queue(&self) -> &Queue {
-        &self.queue
+    pub fn queue(&self) -> Arc<Queue> {
+        Arc::clone(&self.queue)
     }
 
     pub fn capabilities(&self) -> &SurfaceCapabilities {

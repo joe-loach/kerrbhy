@@ -27,19 +27,6 @@ pub type CallbackResources = type_map::concurrent::TypeMap;
 /// This can be turned into a [`epaint::PaintCallback`] and [`epaint::Shape`].
 pub struct Callback(Box<dyn CallbackTrait>);
 
-impl Callback {
-    /// Creates a new [`epaint::PaintCallback`] from a callback trait instance.
-    pub fn new_paint_callback(
-        rect: epaint::emath::Rect,
-        callback: impl CallbackTrait + 'static,
-    ) -> epaint::PaintCallback {
-        epaint::PaintCallback {
-            rect,
-            callback: std::sync::Arc::new(Self(Box::new(callback))),
-        }
-    }
-}
-
 /// A callback trait that can be used to compose an [`epaint::PaintCallback`]
 /// via [`Callback`] for custom WGPU rendering.
 ///

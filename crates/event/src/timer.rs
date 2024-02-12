@@ -1,38 +1,56 @@
 use std::time::Instant;
 
+struct Times {
+    start: Instant,
+    current: Instant,
+    previous: Option<Instant>,
+}
+
+impl Times {
+    fn push(&mut self, time: Instant) {
+        self.previous = Some(self.current);
+        self.current = time;
+    }
+}
+
 pub struct Timer {
-    start: Option<Instant>,
-    last: Option<Instant>,
-    curr: Option<Instant>,
+    times: Option<Times>,
 }
 
 impl Timer {
     pub(crate) fn new() -> Self {
-        Self {
-            start: None,
-            last: None,
-            curr: None,
-        }
+        Self { times: None }
     }
 
     pub fn dt(&self) -> f32 {
-        match (self.curr, self.last) {
-            (Some(a), Some(b)) => a.duration_since(b).as_secs_f32(),
-            (Some(a), None) => a.duration_since(self.start.unwrap()).as_secs_f32(),
-            (None, Some(_)) => unreachable!(),
-            (None, None) => 0.0,
+        if let Some(Times {
+            current,
+            previous,
+            start,
+        }) = self.times
+        {
+            let duration = match previous {
+                Some(prev) => current.duration_since(prev),
+                None => current.duration_since(start),
+            };
+            duration.as_secs_f32()
+        } else {
+            0.0
         }
     }
 
     pub(crate) fn start(&mut self) {
-        self.start = Some(Instant::now());
+        let start = Instant::now();
+        self.times = Some(Times {
+            start,
+            current: start,
+            previous: None,
+        });
     }
 
     pub(crate) fn tick(&mut self) {
-        if self.start.is_none() {
-            return;
+        if let Some(times) = self.times.as_mut() {
+            times.push(Instant::now());
         }
-        self.last = self.curr.take();
-        self.curr = Some(Instant::now());
     }
 }

@@ -1,6 +1,8 @@
 mod error;
 mod timer;
 
+use std::sync::Arc;
+
 use error::RunError;
 use graphics::{
     wgpu,
@@ -25,9 +27,9 @@ use winit::{
     window::Window,
 };
 
-pub struct Context<'a> {
-    device: &'a Device,
-    queue: &'a Queue,
+pub struct State<'a> {
+    device: &'a Arc<Device>,
+    queue: &'a Arc<Queue>,
     window: &'a Window,
 
     timer: &'a Timer,
@@ -35,18 +37,18 @@ pub struct Context<'a> {
     surface: &'a SurfaceConfiguration,
 }
 
-impl<'a> Context<'a> {
+impl<'a> State<'a> {
     pub fn dimensions(&self) -> (u32, u32) {
         // both dimensions are guaranteed to be greater than 0
         (self.surface.width, self.surface.height)
     }
 
-    pub fn device(&self) -> &Device {
-        self.device
+    pub fn device(&self) -> Arc<Device> {
+        Arc::clone(self.device)
     }
 
-    pub fn queue(&self) -> &Queue {
-        self.queue
+    pub fn queue(&self) -> Arc<Queue> {
+        Arc::clone(self.queue)
     }
 
     pub fn window(&self) -> &Window {
@@ -68,10 +70,10 @@ pub enum Event<'a, T = ()> {
 }
 
 pub trait EventHandler<T = ()>: Sized {
-    fn update(&mut self, ctx: &mut Context);
+    fn update(&mut self, state: &State);
     fn draw(
         &mut self,
-        ctx: &mut Context,
+        state: &mut State,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     );
@@ -112,7 +114,7 @@ where
         view_formats: vec![],
     };
 
-    surface.configure(device, &config);
+    surface.configure(&device, &config);
 
     window.set_visible(true);
 
@@ -142,7 +144,7 @@ where
 
                 match event {
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                        reconfigure(&window, surface, &mut config, device);
+                        reconfigure(&window, surface, &mut config, &device);
                         // On macos the window needs to be redrawn manually after resizing
                         window.request_redraw();
                     }
@@ -157,7 +159,7 @@ where
 
                         if let Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) = frame
                         {
-                            reconfigure(&window, surface, &mut config, device);
+                            reconfigure(&window, surface, &mut config, &device);
                             frame = surface.get_current_texture();
                         }
 
@@ -166,15 +168,15 @@ where
                         }
 
                         if let Ok(frame) = frame {
-                            let mut context = Context {
-                                device,
-                                queue,
+                            let mut context = State {
+                                device: &device,
+                                queue: &queue,
                                 window: &window,
                                 timer: &timer,
                                 surface: &config,
                             };
 
-                            state.update(&mut context);
+                            state.update(&context);
 
                             let target = frame.texture.create_view(&Default::default());
 

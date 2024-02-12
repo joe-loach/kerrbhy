@@ -11,5 +11,8 @@ event = { workspace = true }
 memoffset = { workspace = true }
 bytemuck = { workspace = true }
 
+image = { workspace = true }
+glam = { workspace = true }
+
 [build-dependencies]
 shader-bindings = { workspace = true }
