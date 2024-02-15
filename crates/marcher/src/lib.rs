@@ -89,6 +89,10 @@ impl Marcher {
         dirty
     }
 
+    pub fn buffer(&self) -> &wgpu::Texture {
+        &self.buffer
+    }
+
     pub fn view(&self) -> TextureView {
         self.buffer.create_view(&Default::default())
     }
