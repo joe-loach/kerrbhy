@@ -22,14 +22,9 @@ impl Default for Config {
 }
 
 pub trait Simulator {
-    type Buffer: Buffer;
     type Encoder;
 
     fn update(&mut self, config: Config);
     fn record(&mut self, enc: &mut Self::Encoder);
-    fn get_frame(&self) -> Self::Buffer;
-}
-
-pub trait Buffer {
-    fn to_bytes(&self) -> &[u8];
+    fn into_frame(self, enc: &mut Self::Encoder) -> Vec<u8>;
 }

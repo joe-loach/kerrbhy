@@ -25,9 +25,12 @@ marcher = { workspace = true }
 gui = { workspace = true }
 
 image = { workspace = true }
+bytemuck = { workspace = true }
 
 winit = { workspace = true }
 anyhow = { workspace = true }
+
+flume = "*"
 
 [build-dependencies]
 shader-bindings = { workspace = true }

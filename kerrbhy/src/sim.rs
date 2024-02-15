@@ -25,7 +25,7 @@ struct State {
 
 impl State {
     fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
-        let renderer = kerrbhy::Hardware::new(ctx.device(), &ctx.queue());
+        let renderer = kerrbhy::Hardware::new(ctx.device(), ctx.queue());
         let fullscreen = Fullscreen::new(ctx);
         let gui = Gui::new(ctx);
 
@@ -83,8 +83,7 @@ impl EventHandler for State {
         if self.accumulate || self.renderer.must_render() {
             self.renderer.record(encoder);
         }
-        self.fullscreen
-            .draw(encoder, &self.renderer.get_frame(), target);
+        self.fullscreen.draw(encoder, &self.renderer.view(), target);
         self.gui.draw(ctx, encoder, target);
     }
 
