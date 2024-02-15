@@ -41,7 +41,7 @@ impl Context {
         let window = Arc::new(window.with_visible(false).build(event_loop)?);
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::VULKAN,
+            backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
 
