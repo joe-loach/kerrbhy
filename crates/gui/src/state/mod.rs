@@ -1,4 +1,5 @@
 #![allow(clippy::manual_range_contains)]
+#![allow(unused)]
 
 use egui::{
     Pos2,
