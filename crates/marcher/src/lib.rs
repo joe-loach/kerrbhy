@@ -24,6 +24,8 @@ pub struct Marcher {
 
     fov: f32,
 
+    sample_no: u32,
+
     buffer: Texture,
 }
 
@@ -70,6 +72,7 @@ impl Marcher {
             buffer,
             stars,
             fov,
+            sample_no: 0,
             star_sampler,
         }
     }
@@ -84,12 +87,13 @@ impl Marcher {
 
         if dirty {
             self.recreate_buffer(width, height);
+            self.sample_no = 0;
         }
 
         dirty
     }
 
-    pub fn buffer(&self) -> &wgpu::Texture {
+    pub fn texture(&self) -> &wgpu::Texture {
         &self.buffer
     }
 
@@ -118,6 +122,10 @@ impl Marcher {
         let push = shader::PushConstants {
             origin: glam::Vec3::new(0.0, 0.2, 3.3),
             fov: self.fov,
+            sample: self.sample_no,
+            pad0: 0,
+            pad1: 0,
+            pad2: 0,
         };
 
         let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
@@ -135,6 +143,8 @@ impl Marcher {
         let x = (width as f32 / x as f32).ceil() as u32;
         let y = (height as f32 / y as f32).ceil() as u32;
         pass.dispatch_workgroups(x, y, 1);
+
+        self.sample_no += 1;
     }
 
     fn recreate_buffer(&mut self, width: u32, height: u32) {
@@ -187,7 +197,7 @@ fn buffer_texture_descriptor() -> wgpu::TextureDescriptor<'static> {
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba16Float,
+        format: wgpu::TextureFormat::Rgba16Unorm,
         usage: wgpu::TextureUsages::STORAGE_BINDING
             | wgpu::TextureUsages::COPY_SRC
             | wgpu::TextureUsages::TEXTURE_BINDING,

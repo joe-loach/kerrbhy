@@ -9,10 +9,14 @@ const M_1_2PI: f32 = 1.0 / 6.283185307179586476925286766559;
 struct PushConstants {
     origin: vec3<f32>,
     fov: f32,
+    sample: u32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
 }
 
 @group(0) @binding(0)
-var buffer: texture_storage_2d<rgba16float, read_write>;
+var buffer: texture_storage_2d<rgba16unorm, read_write>;
 
 @group(1) @binding(1)
 var star_sampler: sampler;
@@ -80,10 +84,14 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     let ro = pc.origin;
     let rd = normalize(vec3<f32>(uv * 2.0 * pc.fov * M_1_PI, -1.0));
 
-    let color = vec4<f32>(render(ro, rd), 1.0);
+    var color = render(ro, rd);
+
+    // TODO: do gamma correction as a post process
+    // color = pow(color, vec3<f32>(0.45));
+
     let old_color = textureLoad(buffer, id.xy);
 
-    let acuum = normalize(color + old_color);
+    let acc = mix(old_color, vec4<f32>(color, 1.0), 1.0 / f32(pc.sample + 1));
 
-    textureStore(buffer, id.xy, acuum);
+    textureStore(buffer, id.xy, acc);
 }

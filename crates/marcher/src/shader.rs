@@ -8,9 +8,13 @@ use graphics::wgpu;
 pub struct PushConstants {
     pub origin: glam::Vec3,
     pub fov: f32,
+    pub sample: u32,
+    pub pad0: u32,
+    pub pad1: u32,
+    pub pad2: u32,
 }
 const _: () = assert!(
-    std::mem::size_of:: < PushConstants > () == 16,
+    std::mem::size_of:: < PushConstants > () == 32,
     "size of PushConstants does not match WGSL"
 );
 const _: () = assert!(
@@ -20,6 +24,22 @@ const _: () = assert!(
 const _: () = assert!(
     memoffset::offset_of!(PushConstants, fov) == 12,
     "offset of PushConstants.fov does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, sample) == 16,
+    "offset of PushConstants.sample does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, pad0) == 20,
+    "offset of PushConstants.pad0 does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, pad1) == 24,
+    "offset of PushConstants.pad1 does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, pad2) == 28,
+    "offset of PushConstants.pad2 does not match WGSL"
 );
 pub const MAX_STEPS: u32 = 128u32;
 pub const DELTA: f32 = 0.05f32;
@@ -44,7 +64,7 @@ pub mod bind_groups {
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     access: wgpu::StorageTextureAccess::ReadWrite,
-                    format: wgpu::TextureFormat::Rgba16Float,
+                    format: wgpu::TextureFormat::Rgba16Unorm,
                     view_dimension: wgpu::TextureViewDimension::D2,
                 },
                 count: None,
