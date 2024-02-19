@@ -1,12 +1,10 @@
-mod fullscreen;
+mod gui;
 
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use graphics::wgpu;
-use gui::{
-    egui,
-    Gui,
-};
+use gui::GuiState;
+use hardware_renderer::*;
 use winit::{
     dpi::PhysicalSize,
     event_loop::EventLoop,
@@ -14,9 +12,9 @@ use winit::{
 };
 
 struct State {
-    renderer: kerrbhy::Hardware,
+    renderer: Renderer,
     fullscreen: Fullscreen,
-    gui: Gui,
+    gui: GuiState,
 
     accumulate: bool,
     fov: f32,
@@ -24,9 +22,9 @@ struct State {
 
 impl State {
     fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
-        let renderer = kerrbhy::Hardware::new(ctx);
+        let renderer = Renderer::new(ctx);
         let fullscreen = Fullscreen::new(ctx);
-        let gui = Gui::new(ctx);
+        let gui = GuiState::new(ctx);
 
         gui.context().style_mut(|style| {
             style.visuals.window_shadow = egui::epaint::Shadow::NONE;
@@ -58,11 +56,10 @@ impl EventHandler for State {
     fn update(&mut self, state: &event::State) {
         let (width, height) = state.dimensions();
 
-        self.renderer.update(kerrbhy::Config {
+        self.renderer.update(Params {
             width,
             height,
             fov: self.fov,
-            ..Default::default()
         });
 
         let ctx = self.gui.begin();

@@ -2,9 +2,13 @@ use std::sync::Arc;
 
 use graphics::wgpu;
 
-use crate::Config;
+pub struct Params {
+    pub width: u32,
+    pub height: u32,
+    pub fov: f32,
+}
 
-pub struct Hardware {
+pub struct Renderer {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     marcher: marcher::Marcher,
@@ -13,7 +17,7 @@ pub struct Hardware {
     dirty: bool,
 }
 
-impl Hardware {
+impl Renderer {
     pub fn new(ctx: &graphics::Context) -> Self {
         let device = ctx.device();
         let queue = ctx.queue();
@@ -44,8 +48,8 @@ impl Hardware {
         self.marcher.view()
     }
 
-    pub fn update(&mut self, config: Config) {
-        self.dirty = self.marcher.update(config.width, config.height, config.fov);
+    pub fn update(&mut self, params: Params) {
+        self.dirty = self.marcher.update(params.width, params.height, params.fov);
     }
 
     pub fn compute(&mut self, encoder: Option<&mut wgpu::CommandEncoder>) {

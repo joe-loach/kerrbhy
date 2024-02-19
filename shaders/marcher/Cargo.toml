@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-graphics = { workspace = true }
-event = { workspace = true }
+graphics = { path = "../../hardware/graphics" }
+event = { path = "../../hardware/event" }
 
 memoffset = { workspace = true }
 bytemuck = { workspace = true }
@@ -15,4 +15,4 @@ image = { workspace = true }
 glam = { workspace = true }
 
 [build-dependencies]
-shader-bindings = { workspace = true }
+wgsl-bindgen = { path = "../../shaders/wgsl-bindgen" }

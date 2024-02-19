@@ -1,0 +1,12 @@
+[package]
+name = "fullscreen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+graphics = { path = "../../hardware/graphics" }
+event = { path = "../../hardware/event" }
+
+[build-dependencies]
+wgsl-bindgen = { path = "../../shaders/wgsl-bindgen" }

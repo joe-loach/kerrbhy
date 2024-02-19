@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    "crates/*",
-    "kerrbhy",
-]
+members = ["shaders/*", "hardware/*", "software/*", "kerrbhy", "sim"]
 resolver = "2"
 
 [workspace.package]
@@ -11,29 +8,17 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-# local crates
-event = { path = "crates/event" }
-graphics = { path = "crates/graphics" }
-marcher = { path = "crates/marcher" }
-gui = { path = "crates/gui" }
-shader-bindings = { path = "crates/shader-bindings" }
-
-# shared dependencies
-bytemuck = { version = "1.14", features = [ "derive" ] }
-memoffset = "0.9.0"
-image = { version = "0.24.8" }
-glam = { version = "0.25", features = [ "bytemuck"] }
+# other
+bytemuck = { version = "1.14", features = ["derive"] }
+glam = { version = "0.25", features = ["bytemuck"] }
 
 # graphics
 wgpu = { version = "0.19" }
 winit = { version = "0.29" }
+raw-window-handle = "0.6.0"
 
-# gui
-egui = {version = "0.26", features = ["bytemuck"]}
-
-# build deps
-wgsl_to_wgpu = { version = "0.5" }
-regex = "1.10"
+image = { version = "0.24.8" }
+memoffset = "0.9.0"
 
 # error handling
 thiserror = "1.0"

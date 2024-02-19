@@ -1,9 +1,10 @@
+#![allow(unused)]
+
 mod renderer;
 mod state;
 
 use std::sync::Arc;
 
-pub use egui;
 use egui::{
     epaint::{
         self,
@@ -21,7 +22,7 @@ struct PartialOutput {
     shapes: Vec<ClippedShape>,
 }
 
-pub struct Gui {
+pub struct GuiState {
     window: Arc<Window>,
     renderer: renderer::Renderer,
     state: state::State,
@@ -31,7 +32,7 @@ pub struct Gui {
     partial: Option<PartialOutput>,
 }
 
-impl Gui {
+impl GuiState {
     pub fn new(ctx: &graphics::Context) -> Self {
         let window = ctx.window().unwrap();
         let pixels_per_point = window.scale_factor() as f32;
@@ -125,7 +126,6 @@ impl Gui {
         self.renderer.update_buffers(
             device,
             queue,
-            encoder,
             paint_jobs.as_slice(),
             screen_descriptor,
         );

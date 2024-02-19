@@ -1,0 +1,10 @@
+[package]
+name = "wgsl-bindgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+wgsl_to_wgpu = "0.5"
+regex = "1.10"

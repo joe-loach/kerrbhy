@@ -1,0 +1,13 @@
+[package]
+name = "hardware-renderer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+graphics = { path = "../graphics" }
+marcher = { path = "../../shaders/marcher" }
+
+flume = "0.11"

@@ -33,7 +33,7 @@ impl Marcher {
     pub fn new(device: Arc<wgpu::Device>, queue: &wgpu::Queue) -> Self {
         let pipeline = create_pipeline(&device);
 
-        let star_data = include_bytes!("textures/starmap_2020_4k.exr");
+        let star_data = include_bytes!("../../../textures/starmap_2020_4k.exr");
         let star_image = image::load_from_memory(star_data).unwrap();
         let star_bytes = star_image.to_rgba8();
 

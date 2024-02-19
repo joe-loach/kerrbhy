@@ -1,8 +1,12 @@
-mod hardware;
-mod software;
+pub use hardware_renderer::Renderer as Hardware;
+pub use software_renderer::Renderer as Software;
 
-pub use hardware::Hardware;
+pub enum Simulator {
+    Software(Software),
+    Hardware(Hardware),
+}
 
+#[derive(Clone)]
 pub struct Config {
     pub width: u32,
     pub height: u32,
@@ -21,10 +25,64 @@ impl Default for Config {
     }
 }
 
-pub trait Simulator {
-    type Encoder;
+impl From<hardware_renderer::Params> for Config {
+    fn from(value: hardware_renderer::Params) -> Self {
+        let hardware_renderer::Params { width, height, fov } = value;
 
-    fn update(&mut self, config: Config);
-    fn record(&mut self, enc: &mut Self::Encoder);
-    fn into_frame(self, enc: &mut Self::Encoder) -> Vec<u8>;
+        Config {
+            width,
+            height,
+            fov,
+            samples: 1,
+        }
+    }
+}
+
+impl From<Config> for hardware_renderer::Params {
+    fn from(value: Config) -> Self {
+        let Config {
+            width,
+            height,
+            fov,
+            samples: _,
+        } = value;
+
+        hardware_renderer::Params { width, height, fov }
+    }
+}
+
+impl From<software_renderer::Params> for Config {
+    fn from(value: software_renderer::Params) -> Self {
+        let software_renderer::Params {
+            width,
+            height,
+            fov,
+            samples,
+        } = value;
+
+        Config {
+            width,
+            height,
+            fov,
+            samples,
+        }
+    }
+}
+
+impl From<Config> for software_renderer::Params {
+    fn from(value: Config) -> Self {
+        let Config {
+            width,
+            height,
+            fov,
+            samples,
+        } = value;
+
+        software_renderer::Params {
+            width,
+            height,
+            fov,
+            samples,
+        }
+    }
 }

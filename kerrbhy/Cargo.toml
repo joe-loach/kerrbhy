@@ -4,8 +4,6 @@ edition.workspace = true
 license.workspace = true
 version.workspace = true
 
-default-run = "kerrbhy-sim"
-
 [lib]
 name = "kerrbhy"
 path = "src/lib.rs"
@@ -13,24 +11,20 @@ path = "src/lib.rs"
 [[bin]]
 name = "kerrbhy"
 path = "src/bin.rs"
+required-features = ["binary"]
 
-[[bin]]
-name = "kerrbhy-sim"
-path = "src/sim.rs"
+[features]
+binary = ["graphics"]
 
 [dependencies]
-event = { workspace = true }
-graphics = { workspace = true }
-marcher = { workspace = true }
-gui = { workspace = true }
+hardware-renderer = { path = "../hardware/renderer" }
+software-renderer = { path = "../software/renderer" }
+
+graphics = { path = "../hardware/graphics", optional = true }
 
 image = { workspace = true }
 bytemuck = { workspace = true }
-
 winit = { workspace = true }
 anyhow = { workspace = true }
 
-flume = "*"
-
-[build-dependencies]
-shader-bindings = { workspace = true }
+clap = { version = "3", features = ["derive"] }

@@ -10,109 +10,11 @@ use egui::epaint;
 use epaint::{
     ahash::HashMap,
     emath::NumExt,
-    PaintCallbackInfo,
     Primitive,
     Vertex,
 };
 use graphics::wgpu;
 use wgpu::util::DeviceExt as _;
-
-/// You can use this for storage when implementing [`CallbackTrait`].
-pub type CallbackResources = type_map::concurrent::TypeMap;
-
-/// You can use this to do custom `wgpu` rendering in an egui app.
-///
-/// Implement [`CallbackTrait`] and call [`Callback::new_paint_callback`].
-///
-/// This can be turned into a [`epaint::PaintCallback`] and [`epaint::Shape`].
-pub struct Callback(Box<dyn CallbackTrait>);
-
-/// A callback trait that can be used to compose an [`epaint::PaintCallback`]
-/// via [`Callback`] for custom WGPU rendering.
-///
-/// Callbacks in [`Renderer`] are done in three steps:
-/// * [`CallbackTrait::prepare`]: called for all registered callbacks before the
-///   main egui render pass.
-/// * [`CallbackTrait::finish_prepare`]: called for all registered callbacks
-///   after all callbacks finished calling prepare.
-/// * [`CallbackTrait::paint`]: called for all registered callbacks during the
-///   main egui render pass.
-///
-/// Each callback has access to an instance of [`CallbackResources`] that is
-/// stored in the [`Renderer`]. This can be used to store wgpu resources that
-/// need to be accessed during the [`CallbackTrait::paint`] step.
-///
-/// The callbacks implementing [`CallbackTrait`] itself must always be Send +
-/// Sync, but resources stored in [`Renderer::callback_resources`] are not
-/// required to implement Send + Sync when building for wasm. (this is because
-/// wgpu stores references to the JS heap in most of its resources which can not
-/// be shared with other threads).
-///
-///
-/// # Command submission
-///
-/// ## Command Encoder
-///
-/// The passed-in `CommandEncoder` is egui's and can be used directly to
-/// register wgpu commands for simple use cases.
-/// This allows reusing the same [`wgpu::CommandEncoder`] for all callbacks and
-/// egui rendering itself.
-///
-/// ## Command Buffers
-///
-/// For more complicated use cases, one can also return a list of arbitrary
-/// `CommandBuffer`s and have complete control over how they get created and
-/// fed. In particular, this gives an opportunity to parallelize command
-/// registration and prevents a faulty callback from poisoning the main wgpu
-/// pipeline.
-///
-/// When using eframe, the main egui command buffer, as well as all user-defined
-/// command buffers returned by this function, are guaranteed to all be
-/// submitted at once in a single call.
-///
-/// Command Buffers returned by [`CallbackTrait::finish_prepare`] will always be
-/// issued *after* those returned by [`CallbackTrait::prepare`].
-/// Order within command buffers returned by [`CallbackTrait::prepare`] is
-/// dependent on the order the respective [`epaint::Shape::Callback`]s were
-/// submitted in.
-///
-/// # Example
-///
-/// See the [`custom3d_wgpu`](https://github.com/emilk/egui/blob/master/crates/egui_demo_app/src/apps/custom3d_wgpu.rs) demo source for a detailed usage example.
-pub trait CallbackTrait: Send + Sync {
-    fn prepare(
-        &self,
-        _device: &wgpu::Device,
-        _queue: &wgpu::Queue,
-        _egui_encoder: &mut wgpu::CommandEncoder,
-        _callback_resources: &mut CallbackResources,
-    ) -> Vec<wgpu::CommandBuffer> {
-        Vec::new()
-    }
-
-    /// Called after all [`CallbackTrait::prepare`] calls are done.
-    fn finish_prepare(
-        &self,
-        _device: &wgpu::Device,
-        _queue: &wgpu::Queue,
-        _egui_encoder: &mut wgpu::CommandEncoder,
-        _callback_resources: &mut CallbackResources,
-    ) -> Vec<wgpu::CommandBuffer> {
-        Vec::new()
-    }
-
-    /// Called after all [`CallbackTrait::finish_prepare`] calls are done.
-    ///
-    /// It is given access to the [`wgpu::RenderPass`] so that it can issue draw
-    /// commands into the same [`wgpu::RenderPass`] that is used for all
-    /// other egui elements.
-    fn paint<'a>(
-        &'a self,
-        info: PaintCallbackInfo,
-        render_pass: &mut wgpu::RenderPass<'a>,
-        callback_resources: &'a CallbackResources,
-    );
-}
 
 /// Information about the screen used for rendering.
 pub struct ScreenDescriptor {
@@ -173,12 +75,6 @@ pub struct Renderer {
     textures: HashMap<epaint::TextureId, (Option<wgpu::Texture>, wgpu::BindGroup)>,
     next_user_texture_id: u64,
     samplers: HashMap<epaint::textures::TextureOptions, wgpu::Sampler>,
-
-    /// Storage for resources shared with all invocations of [`CallbackTrait`]'s
-    /// methods.
-    ///
-    /// See also [`CallbackTrait`].
-    pub callback_resources: CallbackResources,
 }
 
 impl Renderer {
@@ -366,7 +262,6 @@ impl Renderer {
             textures: HashMap::default(),
             next_user_texture_id: 0,
             samplers: HashMap::default(),
-            callback_resources: CallbackResources::default(),
         }
     }
 
@@ -446,41 +341,7 @@ impl Renderer {
                     }
                 }
                 Primitive::Callback(callback) => {
-                    let Some(cbfn) = callback.callback.downcast_ref::<Callback>() else {
-                        // We already warned in the `prepare` callback
-                        continue;
-                    };
-
-                    let info = PaintCallbackInfo {
-                        viewport: callback.rect,
-                        clip_rect: *clip_rect,
-                        pixels_per_point,
-                        screen_size_px: size_in_pixels,
-                    };
-
-                    let viewport_px = info.viewport_in_pixels();
-                    if viewport_px.width_px > 0 && viewport_px.height_px > 0 {
-                        needs_reset = true;
-
-                        // We're setting a default viewport for the render pass as a
-                        // courtesy for the user, so that they don't have to think about
-                        // it in the simple case where they just want to fill the whole
-                        // paint area.
-                        //
-                        // The user still has the possibility of setting their own custom
-                        // viewport during the paint callback, effectively overriding this
-                        // one.
-                        render_pass.set_viewport(
-                            viewport_px.left_px as f32,
-                            viewport_px.top_px as f32,
-                            viewport_px.width_px as f32,
-                            viewport_px.height_px as f32,
-                            0.0,
-                            1.0,
-                        );
-
-                        cbfn.0.paint(info, render_pass, &self.callback_resources);
-                    }
+                    unimplemented!("Callbacks are ignored")
                 }
             }
         }
@@ -761,10 +622,9 @@ impl Renderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
         paint_jobs: &[epaint::ClippedPrimitive],
         screen_descriptor: &ScreenDescriptor,
-    ) -> Vec<wgpu::CommandBuffer> {
+    ) {
         let screen_size_in_points = screen_descriptor.screen_size_in_points();
 
         let uniform_buffer_content = UniformBuffer {
@@ -780,20 +640,15 @@ impl Renderer {
             self.previous_uniform_buffer_content = uniform_buffer_content;
         }
 
-        // Determine how many vertices & indices need to be rendered, and gather prepare
-        // callbacks
-        let mut callbacks = Vec::new();
+        // Determine how many vertices & indices need to be rendered
         let (vertex_count, index_count) = {
             paint_jobs.iter().fold((0, 0), |acc, clipped_primitive| {
                 match &clipped_primitive.primitive {
                     Primitive::Mesh(mesh) => {
                         (acc.0 + mesh.vertices.len(), acc.1 + mesh.indices.len())
                     }
-                    Primitive::Callback(callback) => {
-                        if let Some(c) = callback.callback.downcast_ref::<Callback>() {
-                            callbacks.push(c.0.as_ref());
-                        };
-                        acc
+                    Primitive::Callback(_) => {
+                        unimplemented!()
                     }
                 }
             })
@@ -864,30 +719,6 @@ impl Renderer {
                 }
             }
         }
-
-        let mut user_cmd_bufs = Vec::new();
-        {
-            for callback in &callbacks {
-                user_cmd_bufs.extend(callback.prepare(
-                    device,
-                    queue,
-                    encoder,
-                    &mut self.callback_resources,
-                ));
-            }
-        }
-        {
-            for callback in &callbacks {
-                user_cmd_bufs.extend(callback.finish_prepare(
-                    device,
-                    queue,
-                    encoder,
-                    &mut self.callback_resources,
-                ));
-            }
-        }
-
-        user_cmd_bufs
     }
 }
 
