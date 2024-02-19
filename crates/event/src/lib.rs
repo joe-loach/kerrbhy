@@ -88,7 +88,7 @@ pub trait EventHandler<T = ()>: Sized {
 pub fn run<E, T>(
     event_loop: EventLoop<T>,
     mut gfx: graphics::ContextBuilder,
-    state: impl FnOnce(&EventLoop<T>, &graphics::Context) -> E,
+    app: impl FnOnce(&EventLoop<T>, &graphics::Context) -> E,
 ) -> Result<(), RunError>
 where
     E: EventHandler<T> + 'static,
@@ -102,7 +102,7 @@ where
     let ctx = gfx.build(Some(&event_loop))?;
 
     // create the state
-    let mut state = (state)(&event_loop, &ctx);
+    let mut app = (app)(&event_loop, &ctx);
 
     // Poll by default
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -146,11 +146,11 @@ where
         match event {
             WEvent::UserEvent(user) => {
                 // pass on user events to the state
-                let _ = state.event(Event::User(user));
+                let _ = app.event(Event::User(user));
             }
 
             WEvent::WindowEvent { event, window_id } if window_id == window.id() => {
-                let handled = state.event(Event::Window(&event));
+                let handled = app.event(Event::Window(&event));
 
                 if !handled {
                     // TODO: keep input state etc
@@ -182,7 +182,7 @@ where
                         }
 
                         if let Ok(frame) = frame {
-                            let mut context = State {
+                            let mut state = State {
                                 device: &device,
                                 queue: &queue,
                                 window: &window,
@@ -190,14 +190,14 @@ where
                                 surface: &config,
                             };
 
-                            state.update(&context);
+                            app.update(&state);
 
                             let target = frame.texture.create_view(&Default::default());
 
                             let mut encoder =
                                 device.create_command_encoder(&CommandEncoderDescriptor::default());
 
-                            state.draw(&mut context, &mut encoder, &target);
+                            app.draw(&mut state, &mut encoder, &target);
 
                             queue.submit(Some(encoder.finish()));
                             frame.present();
@@ -215,7 +215,7 @@ where
 
     // just to check we never move
     let _ = ctx;
-    let _ = state;
+    let _ = app;
 
     Ok(())
 }
