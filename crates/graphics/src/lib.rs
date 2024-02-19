@@ -2,7 +2,8 @@ mod error;
 
 use std::sync::Arc;
 
-pub use error::Error as ContextError;
+pub use error::Error as ContextBuildError;
+use error::Error;
 pub use wgpu;
 use wgpu::{
     Adapter,
@@ -20,32 +21,87 @@ use winit::{
     },
 };
 
-pub struct Context {
+struct WindowData {
     window: Arc<Window>,
     surface: Surface<'static>,
+    capabilities: SurfaceCapabilities,
+}
 
+pub struct ContextBuilder {
+    features: Box<dyn FnOnce(&wgpu::Adapter) -> wgpu::Features>,
+    limits: wgpu::Limits,
+
+    window: Option<WindowBuilder>,
+}
+
+impl ContextBuilder {
+    pub fn new(
+        features: impl FnOnce(&wgpu::Adapter) -> wgpu::Features + 'static,
+        limits: wgpu::Limits,
+    ) -> Self {
+        Self {
+            features: Box::new(features),
+            limits,
+            window: None,
+        }
+    }
+
+    pub fn with_window(self, window: WindowBuilder) -> Self {
+        Self {
+            window: Some(window),
+            ..self
+        }
+    }
+
+    pub fn has_window(&self) -> bool {
+        self.window.is_some()
+    }
+
+    pub fn build<T: 'static>(
+        self,
+        event_loop: Option<&EventLoop<T>>,
+    ) -> Result<Context, ContextBuildError> {
+        let Self {
+            features,
+            limits,
+            window,
+        } = self;
+
+        let window_info = event_loop.zip(window);
+
+        Context::create(window_info, features, limits)
+    }
+}
+
+pub struct Context {
     adapter: Adapter,
     device: Arc<Device>,
     queue: Arc<Queue>,
 
-    capabilities: SurfaceCapabilities,
+    window_data: Option<WindowData>,
 }
 
 impl Context {
-    pub fn new<T>(
-        event_loop: &EventLoop<T>,
-        window: WindowBuilder,
+    fn create<T>(
+        window_info: Option<(&EventLoop<T>, WindowBuilder)>,
         features: impl FnOnce(&wgpu::Adapter) -> wgpu::Features,
         limits: wgpu::Limits,
-    ) -> Result<Self, ContextError> {
-        let window = Arc::new(window.with_visible(false).build(event_loop)?);
-
+    ) -> Result<Self, ContextBuildError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
 
-        let surface = instance.create_surface(Arc::clone(&window))?;
+        let (mut window, mut surface) = if let Some((event_loop, window)) = window_info {
+            // create an invisible window
+            let window = Arc::new(window.with_visible(false).build(event_loop)?);
+            // and a surface to put a gfx context on
+            let surface = instance.create_surface(Arc::clone(&window))?;
+
+            (Some(window), Some(surface))
+        } else {
+            (None, None)
+        };
 
         let (adapter, device, queue) = pollster::block_on(async {
             let adapter = instance
@@ -53,15 +109,15 @@ impl Context {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     force_fallback_adapter: false,
                     // Request an adapter which can render to our surface
-                    compatible_surface: Some(&surface),
+                    compatible_surface: surface.as_ref(),
                 })
                 .await
-                .ok_or_else(|| ContextError::AdapterCreationError)?;
+                .ok_or_else(|| Error::AdapterCreationError)?;
 
             let adapter_limits = adapter.limits();
 
             if !limits.check_limits(&adapter_limits) {
-                return Err(ContextError::LimitsSurpassed);
+                return Err(Error::LimitsSurpassed);
             }
 
             let (device, queue) = adapter
@@ -75,32 +131,42 @@ impl Context {
                 )
                 .await?;
 
-            Ok::<_, ContextError>((adapter, device, queue))
+            Ok::<_, Error>((adapter, device, queue))
         })?;
 
-        let capabilities = surface.get_capabilities(&adapter);
+        let window_data = if let (Some(surface), Some(window)) = (surface.take(), window.take()) {
+            let capabilities = surface.get_capabilities(&adapter);
+
+            Some(WindowData {
+                window,
+                surface,
+                capabilities,
+            })
+        } else {
+            None
+        };
 
         let device = Arc::new(device);
         let queue = Arc::new(queue);
 
         Ok(Context {
-            window,
-            surface,
-
             adapter,
             device,
             queue,
-
-            capabilities,
+            window_data,
         })
     }
 
-    pub fn window(&self) -> Arc<Window> {
-        Arc::clone(&self.window)
+    pub fn is_headless(&self) -> bool {
+        self.window_data.is_none()
     }
 
-    pub fn surface(&self) -> &Surface {
-        &self.surface
+    pub fn window(&self) -> Option<Arc<Window>> {
+        self.window_data.as_ref().map(|d| d.window.clone())
+    }
+
+    pub fn surface(&self) -> Option<&Surface> {
+        self.window_data.as_ref().map(|d| &d.surface)
     }
 
     pub fn adapter(&self) -> &Adapter {
@@ -115,15 +181,15 @@ impl Context {
         Arc::clone(&self.queue)
     }
 
-    pub fn capabilities(&self) -> &SurfaceCapabilities {
-        &self.capabilities
+    pub fn capabilities(&self) -> Option<&SurfaceCapabilities> {
+        self.window_data.as_ref().map(|d| &d.capabilities)
     }
 
-    pub fn formats(&self) -> &[TextureFormat] {
-        &self.capabilities.formats
+    pub fn formats(&self) -> Option<&[TextureFormat]> {
+        self.capabilities().map(|cap| cap.formats.as_slice())
     }
 
-    pub fn view_format(&self) -> TextureFormat {
-        self.capabilities.formats[0]
+    pub fn view_format(&self) -> Option<TextureFormat> {
+        self.formats().and_then(|f| f.first().copied())
     }
 }

@@ -7,7 +7,6 @@ use gui::{
     egui,
     Gui,
 };
-use kerrbhy::Simulator;
 use winit::{
     dpi::PhysicalSize,
     event_loop::EventLoop,
@@ -25,7 +24,7 @@ struct State {
 
 impl State {
     fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
-        let renderer = kerrbhy::Hardware::new(ctx.device(), ctx.queue());
+        let renderer = kerrbhy::Hardware::new(ctx);
         let fullscreen = Fullscreen::new(ctx);
         let gui = Gui::new(ctx);
 
@@ -44,10 +43,8 @@ impl State {
         }
     }
 
-    fn ui(&mut self, ctx: egui::Context, state: &event::State) {
+    fn ui(&mut self, ctx: egui::Context, _state: &event::State) {
         egui::Window::new("Config").show(&ctx, |ui| {
-            ui.label(format!("\r{:0>8} FPS", 1.0 / state.timer().dt()));
-
             ui.horizontal(|ui| {
                 ui.label("Fov: ");
                 ui.drag_angle(&mut self.fov);
@@ -81,7 +78,7 @@ impl EventHandler for State {
     ) {
         // only compute more work when it's needed
         if self.accumulate || self.renderer.must_render() {
-            self.renderer.record(encoder);
+            self.renderer.compute(Some(encoder));
         }
         self.fullscreen.draw(encoder, &self.renderer.view(), target);
         self.gui.draw(ctx, encoder, target);
@@ -100,16 +97,15 @@ fn main() -> anyhow::Result<()> {
         .with_inner_size(PhysicalSize::new(600, 600))
         .with_min_inner_size(PhysicalSize::new(400, 400));
 
-    let ctx = graphics::Context::new(
-        &event_loop,
-        window,
+    let cb = graphics::ContextBuilder::new(
         |adapter| adapter.features(),
         wgpu::Limits::downlevel_defaults(),
-    )?;
+    )
+    .with_window(window);
 
-    let state = State::new(&event_loop, &ctx);
+    let state = |event_loop: &_, ctx: &_| State::new(event_loop, ctx);
 
-    event::run(event_loop, ctx, state)?;
+    event::run(event_loop, cb, state)?;
 
     Ok(())
 }

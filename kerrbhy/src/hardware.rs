@@ -2,26 +2,36 @@ use std::sync::Arc;
 
 use graphics::wgpu;
 
-use crate::{
-    Config,
-    Simulator,
-};
+use crate::Config;
 
 pub struct Hardware {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     marcher: marcher::Marcher,
+    encoder: Option<wgpu::CommandEncoder>,
+
     dirty: bool,
 }
 
 impl Hardware {
-    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
+    pub fn new(ctx: &graphics::Context) -> Self {
+        let device = ctx.device();
+        let queue = ctx.queue();
+
         let marcher = marcher::Marcher::new(device.clone(), &queue);
+
+        let encoder = if ctx.is_headless() {
+            Some(device.create_command_encoder(&Default::default()))
+        } else {
+            None
+        };
 
         Self {
             device,
             queue,
             marcher,
+            encoder,
+
             dirty: true,
         }
     }
@@ -33,37 +43,43 @@ impl Hardware {
     pub fn view(&self) -> wgpu::TextureView {
         self.marcher.view()
     }
-}
 
-impl Simulator for Hardware {
-    type Encoder = wgpu::CommandEncoder;
-
-    fn update(&mut self, config: Config) {
+    pub fn update(&mut self, config: Config) {
         self.dirty = self.marcher.update(config.width, config.height, config.fov);
     }
 
-    fn record(&mut self, enc: &mut Self::Encoder) {
-        self.marcher.record(enc);
+    pub fn compute(&mut self, encoder: Option<&mut wgpu::CommandEncoder>) {
+        let encoder = self.encoder.as_mut().or(encoder).expect("no encoder");
+
+        self.marcher.record(encoder);
     }
 
-    fn into_frame(self, enc: &mut Self::Encoder) -> Vec<u8> {
-        let width = self.marcher.buffer().width();
-        let height = self.marcher.buffer().height();
+    pub fn into_frame(self, encoder: Option<wgpu::CommandEncoder>) -> Vec<u8> {
+        let mut encoder = self.encoder.or(encoder).expect("no encoder");
+
+        let width = self.marcher.texture().width();
+        let height = self.marcher.texture().height();
+        let block_size = self
+            .marcher
+            .texture()
+            .format()
+            .block_copy_size(None)
+            .unwrap();
 
         let frame = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: width as u64 * height as u64 * 4,
+            size: width as u64 * height as u64 * block_size as u64,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
 
-        enc.copy_texture_to_buffer(
-            self.marcher.buffer().as_image_copy(),
+        encoder.copy_texture_to_buffer(
+            self.marcher.texture().as_image_copy(),
             wgpu::ImageCopyBuffer {
                 buffer: &frame,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(width * 4),
+                    bytes_per_row: Some(width * block_size),
                     rows_per_image: Some(height),
                 },
             },
@@ -73,6 +89,9 @@ impl Simulator for Hardware {
                 depth_or_array_layers: 1,
             },
         );
+
+        // submit the commands to finish the work before reading
+        self.queue.submit(Some(encoder.finish()));
 
         let (tx, rx) = flume::bounded(1);
 
@@ -87,7 +106,7 @@ impl Simulator for Hardware {
         // block until we get a result
         if let Ok(Ok(())) = rx.recv() {
             let data = slice.get_mapped_range();
-            let result = bytemuck::cast_slice(&data).to_vec();
+            let result = data.as_ref().to_vec();
 
             // get rid of the buffer from the CPU.
             drop(data);

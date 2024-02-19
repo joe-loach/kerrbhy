@@ -33,7 +33,7 @@ pub struct Gui {
 
 impl Gui {
     pub fn new(ctx: &graphics::Context) -> Self {
-        let window = ctx.window();
+        let window = ctx.window().unwrap();
         let pixels_per_point = window.scale_factor() as f32;
 
         let context = egui::Context::default();
@@ -47,7 +47,7 @@ impl Gui {
             Some(ctx.device().limits().max_texture_dimension_2d as usize),
         );
 
-        let renderer = renderer::Renderer::new(&ctx.device(), ctx.view_format(), None, 1);
+        let renderer = renderer::Renderer::new(&ctx.device(), ctx.view_format().unwrap(), None, 1);
 
         Self {
             window,

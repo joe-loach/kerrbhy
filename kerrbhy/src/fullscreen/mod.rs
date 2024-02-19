@@ -28,7 +28,7 @@ impl Fullscreen {
             fragment: Some(wgpu::FragmentState {
                 module: &module,
                 entry_point: shader::ENTRY_FRAG,
-                targets: &[Some(wgpu::ColorTargetState::from(ctx.view_format()))],
+                targets: &[Some(wgpu::ColorTargetState::from(ctx.view_format().unwrap()))],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,

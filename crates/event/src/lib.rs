@@ -87,17 +87,28 @@ pub trait EventHandler<T = ()>: Sized {
 
 pub fn run<E, T>(
     event_loop: EventLoop<T>,
-    ctx: graphics::Context,
-    mut state: E,
+    mut gfx: graphics::ContextBuilder,
+    state: impl FnOnce(&EventLoop<T>, &graphics::Context) -> E,
 ) -> Result<(), RunError>
 where
     E: EventHandler<T> + 'static,
 {
+    // build the graphics context
+    // make sure that they have a window
+    if !gfx.has_window() {
+        gfx = gfx.with_window(winit::window::WindowBuilder::new())
+    }
+
+    let ctx = gfx.build(Some(&event_loop))?;
+
+    // create the state
+    let mut state = (state)(&event_loop, &ctx);
+
     // Poll by default
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let window = ctx.window();
-    let surface = ctx.surface();
+    let window = ctx.window().expect("created with a window");
+    let surface = ctx.surface().expect("created with a window");
     let device = ctx.device();
     let queue = ctx.queue();
 
@@ -106,11 +117,14 @@ where
     let mut config = SurfaceConfiguration {
         desired_maximum_frame_latency: 2,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        format: ctx.formats()[0],
+        format: ctx.view_format().expect("created with a window"),
         width: size.width.max(1),
         height: size.height.max(1),
         present_mode: wgpu::PresentMode::Fifo,
-        alpha_mode: ctx.capabilities().alpha_modes[0],
+        alpha_mode: ctx
+            .capabilities()
+            .expect("created with a window")
+            .alpha_modes[0],
         view_formats: vec![],
     };
 
@@ -199,8 +213,9 @@ where
         }
     })?;
 
-    // just to check we never move ctx
+    // just to check we never move
     let _ = ctx;
+    let _ = state;
 
     Ok(())
 }
