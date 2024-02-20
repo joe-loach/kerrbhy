@@ -8,9 +8,6 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-# other
-bytemuck = { version = "1.14", features = ["derive"] }
-glam = { version = "0.25", features = ["bytemuck"] }
 
 # graphics
 wgpu = { version = "0.19" }
@@ -18,11 +15,16 @@ winit = { version = "0.29" }
 raw-window-handle = "0.6.0"
 
 image = { version = "0.24.8" }
-memoffset = "0.9.0"
+rayon = "1.8"
 
 # error handling
 thiserror = "1.0"
 anyhow = "1.0"
+
+# other
+bytemuck = { version = "1.14", features = ["derive"] }
+glam = { version = "0.25", features = ["bytemuck"] }
+memoffset = "0.9.0"
 
 # optimise certain packages for non --release builds
 [profile.dev.package.image]

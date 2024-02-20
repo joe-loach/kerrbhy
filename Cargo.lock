@@ -1785,6 +1785,7 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "image",
+ "wcpu",
 ]
 
 [[package]]
@@ -2179,6 +2180,11 @@ dependencies = [
 [[package]]
 name = "wcpu"
 version = "0.1.0"
+dependencies = [
+ "glam",
+ "image",
+ "rayon",
+]
 
 [[package]]
 name = "web-sys"
