@@ -45,8 +45,8 @@ pub const MAX_STEPS: u32 = 128u32;
 pub const DELTA: f32 = 0.05f32;
 pub const BLACKHOLE_RADIUS: f32 = 0.6f32;
 pub const SKYBOX_RADIUS: f32 = 3.6f32;
-pub const M_1_PI: f32 = 0.31830987f32;
-pub const M_1_2PI: f32 = 0.15915494f32;
+pub const FRAC_1_PI: f32 = 0.31830987f32;
+pub const FRAC_1_2PI: f32 = 0.15915494f32;
 pub mod bind_groups {
     use graphics::wgpu;
 
@@ -64,7 +64,7 @@ pub mod bind_groups {
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     access: wgpu::StorageTextureAccess::ReadWrite,
-                    format: wgpu::TextureFormat::Rgba16Unorm,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
                     view_dimension: wgpu::TextureViewDimension::D2,
                 },
                 count: None,
