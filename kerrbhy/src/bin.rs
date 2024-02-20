@@ -7,8 +7,12 @@ struct Args {
     width: u32,
     height: u32,
     fov: f32,
+
+    // have to have at least one sample
+    #[clap(value_parser = clap::value_parser!(u32).range(1..))]
     samples: u32,
 
+    #[clap(short, long)]
     hardware: bool,
 }
 
@@ -57,7 +61,7 @@ fn main() -> anyhow::Result<()> {
         Simulator::Hardware(h) => h.into_frame(None),
     };
 
-    image::save_buffer("out.png", &bytes, width, height, image::ColorType::Rgba16)
+    image::save_buffer("out.png", &bytes, width, height, image::ColorType::Rgba8)
         .expect("failed to save image");
 
     Ok(())
