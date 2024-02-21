@@ -190,6 +190,22 @@ impl Context {
     }
 
     pub fn view_format(&self) -> Option<TextureFormat> {
-        self.formats().and_then(|f| f.first().copied())
+        const PREFERRED: [TextureFormat; 2] = [
+            TextureFormat::Rgba8Unorm,
+            TextureFormat::Bgra8Unorm,
+        ];
+        if let Some(formats) = self.formats() {
+            for tex in PREFERRED {
+                if formats.contains(&tex) {
+                    // always prefer non srgb swapchain
+                    return Some(tex);
+                }
+            }
+            // even though Bgra8Unorm is expected to exist
+            // just choose the first item as a back-up
+            formats.first().copied()
+        } else {
+            None
+        }
     }
 }

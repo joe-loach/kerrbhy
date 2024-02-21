@@ -86,11 +86,11 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var color = render(ro, rd);
 
-    // TODO: do gamma correction as a post process
-    // color = pow(color, vec3<f32>(0.45));
+    // gamma correction
+    color = pow(color, vec3<f32>(0.45));
 
+    // accumulate the color in the buffer
     let old_color = textureLoad(buffer, id.xy);
-
     let acc = mix(old_color, vec4<f32>(color, 1.0), 1.0 / f32(pc.sample + 1));
 
     textureStore(buffer, id.xy, acc);
