@@ -27,4 +27,4 @@ bytemuck = { workspace = true }
 winit = { workspace = true }
 anyhow = { workspace = true }
 
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
