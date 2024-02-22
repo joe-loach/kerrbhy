@@ -21,7 +21,11 @@ var color_sampler: sampler;
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(color_texture, color_sampler, in.uv).rgb;
+    var uv = vec2<f32>(
+        in.uv.x,
+        1.0 - in.uv.y
+    );
+    let color = textureSample(color_texture, color_sampler, uv).rgb;
     return vec4<f32>(color, 1.0);
 }
 

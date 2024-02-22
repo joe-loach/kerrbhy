@@ -14,8 +14,8 @@ impl Fullscreen {
     pub fn new(ctx: &graphics::Context) -> Self {
         let device = ctx.device();
 
-        let layout = shader::create_pipeline_layout(&device);
         let module = shader::create_shader_module(&device);
+        let layout = shader::create_pipeline_layout(&device);
         let entry = shader::vert_entry();
         let vertex = shader::vertex_state(&module, &entry);
 
@@ -28,7 +28,9 @@ impl Fullscreen {
             fragment: Some(wgpu::FragmentState {
                 module: &module,
                 entry_point: shader::ENTRY_FRAG,
-                targets: &[Some(wgpu::ColorTargetState::from(ctx.view_format().unwrap()))],
+                targets: &[Some(wgpu::ColorTargetState::from(
+                    ctx.view_format().unwrap(),
+                ))],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
