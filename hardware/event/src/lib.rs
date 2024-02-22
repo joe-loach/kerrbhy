@@ -169,39 +169,59 @@ where
                     WindowEvent::RedrawRequested => {
                         timer.tick();
 
-                        let mut frame = surface.get_current_texture();
+                        // try to get the next texture
+                        let frame = match surface.get_current_texture() {
+                            // best case: an optimal texture!
+                            Ok(
+                                frame @ wgpu::SurfaceTexture {
+                                    suboptimal: false, ..
+                                },
+                            ) => frame,
+                            // a recoverable error or just suboptimal
+                            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated)
+                            | Ok(wgpu::SurfaceTexture {
+                                suboptimal: true, ..
+                            }) => {
+                                // reconfigure and try again
+                                reconfigure_surface(&window, surface, &mut config, &device);
+                                let new = surface.get_current_texture();
 
-                        if let Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) = frame
-                        {
-                            reconfigure(&window, surface, &mut config, &device);
-                            frame = surface.get_current_texture();
-                        }
+                                match new {
+                                    Ok(frame) => frame,
+                                    // if something went wrong again,
+                                    // lets just hope and wait for another redraw
+                                    Err(_) => return,
+                                }
+                            }
+                            // failed to get surface in time, wait for another redraw request
+                            Err(wgpu::SurfaceError::Timeout) => return,
+                            // OOM, bad! Exit ASAP!
+                            Err(wgpu::SurfaceError::OutOfMemory) => {
+                                target.exit();
+                                return;
+                            }
+                        };
 
-                        if let Err(wgpu::SurfaceError::OutOfMemory) = frame {
-                            target.exit()
-                        }
-
-                        if let Ok(frame) = frame {
-                            let mut state = State {
-                                device: &device,
-                                queue: &queue,
-                                window: &window,
-                                timer: &timer,
-                                surface: &config,
-                            };
+                        let mut state = State {
+                            device: &device,
+                            queue: &queue,
+                            window: &window,
+                            timer: &timer,
+                            surface: &config,
+                        };
 
                             app.update(&state);
 
-                            let target = frame.texture.create_view(&Default::default());
+                        let target = frame.texture.create_view(&Default::default());
 
-                            let mut encoder =
-                                device.create_command_encoder(&CommandEncoderDescriptor::default());
+                        let mut encoder =
+                            device.create_command_encoder(&CommandEncoderDescriptor::default());
 
                             app.draw(&mut state, &mut encoder, &target);
 
-                            queue.submit(Some(encoder.finish()));
-                            frame.present();
-                        }
+                        queue.submit(Some(encoder.finish()));
+                        frame.present();
+
                     }
                     _ => (),
                 }
