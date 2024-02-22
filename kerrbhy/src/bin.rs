@@ -12,7 +12,7 @@ struct Args {
     #[clap(value_parser = clap::value_parser!(u32).range(1..))]
     samples: u32,
 
-    #[clap(short, long)]
+    #[clap(long)]
     hardware: bool,
 }
 
