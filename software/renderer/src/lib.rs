@@ -112,6 +112,7 @@ impl Renderer {
             }
 
             let avg = acc / self.config.samples as f32;
+            let avg = avg.powf(0.45);
 
             avg.extend(1.0)
         });
