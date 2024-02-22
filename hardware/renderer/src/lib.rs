@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
 use graphics::wgpu;
+use rayon::{
+    iter::ParallelIterator,
+    slice::ParallelSlice,
+};
 
 pub struct Params {
     pub width: u32,
@@ -61,37 +65,11 @@ impl Renderer {
     pub fn into_frame(self, encoder: Option<wgpu::CommandEncoder>) -> Vec<u8> {
         let mut encoder = self.encoder.or(encoder).expect("no encoder");
 
-        let width = self.marcher.texture().width();
-        let height = self.marcher.texture().height();
-        let block_size = self
-            .marcher
-            .texture()
-            .format()
-            .block_copy_size(None)
-            .unwrap();
-
-        let frame = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: width as u64 * height as u64 * block_size as u64,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-
-        encoder.copy_texture_to_buffer(
-            self.marcher.texture().as_image_copy(),
-            wgpu::ImageCopyBuffer {
-                buffer: &frame,
-                layout: wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(width * block_size),
-                    rows_per_image: Some(height),
-                },
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
+        let (frame, row, aligned_row) = copy_texture_to_buffer(
+            &self.device,
+            &mut encoder,
+            self.marcher.texture(),
+            self.marcher.size(),
         );
 
         // submit the commands to finish the work before reading
@@ -110,7 +88,13 @@ impl Renderer {
         // block until we get a result
         if let Ok(Ok(())) = rx.recv() {
             let data = slice.get_mapped_range();
-            let result = data.as_ref().to_vec();
+
+            // trim the edges of the data
+            // to make sure that the resulting image is the correct size
+            let whole_rows = data.par_chunks_exact(aligned_row as usize);
+            let result: Vec<u8> = whole_rows
+                .flat_map(|chunk| chunk.split_at(row as usize).0.to_vec())
+                .collect();
 
             // get rid of the buffer from the CPU.
             drop(data);
@@ -121,4 +105,48 @@ impl Renderer {
             panic!("failed to read frame from gpu")
         }
     }
+}
+
+fn copy_texture_to_buffer(
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    source_texture: &wgpu::Texture,
+    size: wgpu::Extent3d,
+) -> (wgpu::Buffer, u32, u32) {
+    assert!(source_texture.dimension() == wgpu::TextureDimension::D2);
+
+    let block_size = source_texture.format().block_copy_size(None).unwrap();
+    let row = size.width * block_size;
+    let aligned_row = pad_to(row, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: aligned_row as u64 * size.height as u64,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+
+    let source = wgpu::ImageCopyTexture {
+        texture: source_texture,
+        mip_level: 0,
+        origin: wgpu::Origin3d::ZERO,
+        aspect: wgpu::TextureAspect::All,
+    };
+
+    let destination = wgpu::ImageCopyBuffer {
+        buffer: &buffer,
+        layout: wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(aligned_row),
+            rows_per_image: None,
+        },
+    };
+
+    encoder.copy_texture_to_buffer(source, destination, size);
+
+    (buffer, row, aligned_row)
+}
+
+fn pad_to(x: u32, y: u32) -> u32 {
+    ((x + y - 1) / y) * y
 }

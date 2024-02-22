@@ -11,3 +11,5 @@ graphics = { path = "../graphics" }
 marcher = { path = "../../shaders/marcher" }
 
 flume = "0.11"
+
+rayon = { workspace = true }
