@@ -26,7 +26,7 @@ pub struct Marcher {
 
     sample_no: u32,
 
-    buffer: Texture,
+    texture: Texture,
 }
 
 impl Marcher {
@@ -62,14 +62,14 @@ impl Marcher {
             ..Default::default()
         });
 
-        let buffer = device.create_texture(&buffer_texture_descriptor());
+        let texture = device.create_texture(&buffer_texture_descriptor());
 
         let fov = (90.0_f32).to_radians();
 
         Self {
             device,
             pipeline,
-            buffer,
+            texture,
             stars,
             fov,
             sample_no: 0,
@@ -77,8 +77,20 @@ impl Marcher {
         }
     }
 
+    pub fn texture(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+
+    pub fn view(&self) -> TextureView {
+        self.texture.create_view(&Default::default())
+    }
+
+    pub fn size(&self) -> wgpu::Extent3d {
+        self.texture().size()
+    }
+
     pub fn update(&mut self, width: u32, height: u32, fov: f32) -> bool {
-        let dimensions_changed = width != self.buffer.width() || height != self.buffer.height();
+        let dimensions_changed = width != self.texture.width() || height != self.texture.height();
         let fov_changed = self.fov != fov;
 
         self.fov = fov;
@@ -93,16 +105,8 @@ impl Marcher {
         dirty
     }
 
-    pub fn texture(&self) -> &wgpu::Texture {
-        &self.buffer
-    }
-
-    pub fn view(&self) -> TextureView {
-        self.buffer.create_view(&Default::default())
-    }
-
     pub fn record(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        let [width, height] = [self.buffer.width(), self.buffer.height()];
+        let [width, height] = [self.texture.width(), self.texture.height()];
 
         let bind_group0 = BindGroup0::from_bindings(
             &self.device,
@@ -148,7 +152,7 @@ impl Marcher {
     }
 
     fn recreate_buffer(&mut self, width: u32, height: u32) {
-        self.buffer = self.device.create_texture(&TextureDescriptor {
+        self.texture = self.device.create_texture(&TextureDescriptor {
             size: wgpu::Extent3d {
                 width,
                 height,
