@@ -190,6 +190,7 @@ impl Context {
     }
 
     pub fn view_format(&self) -> Option<TextureFormat> {
+        #[rustfmt::skip]
         const PREFERRED: [TextureFormat; 2] = [
             TextureFormat::Rgba8Unorm,
             TextureFormat::Bgra8Unorm,
