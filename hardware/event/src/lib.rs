@@ -158,7 +158,7 @@ where
 
                 match event {
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                        reconfigure(&window, surface, &mut config, &device);
+                        reconfigure_surface(&window, surface, &mut config, &device);
                         // On macos the window needs to be redrawn manually after resizing
                         window.request_redraw();
                     }
@@ -220,7 +220,7 @@ where
     Ok(())
 }
 
-fn reconfigure(
+fn reconfigure_surface(
     window: &Window,
     surface: &wgpu::Surface,
     config: &mut SurfaceConfiguration,
