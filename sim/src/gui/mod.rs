@@ -123,12 +123,8 @@ impl GuiState {
             pixels_per_point: self.pixels_per_point,
         };
 
-        self.renderer.update_buffers(
-            device,
-            queue,
-            paint_jobs.as_slice(),
-            screen_descriptor,
-        );
+        self.renderer
+            .update_buffers(device, queue, paint_jobs.as_slice(), screen_descriptor);
 
         {
             let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {

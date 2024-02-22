@@ -99,7 +99,7 @@ impl Sample<2> for Sampler {
         match self.filter_mode {
             Filter::Nearest => {
                 let Vec2 { x, y } = pos.round();
-                
+
                 tex.get_checked(x as u32, y as u32).unwrap_or(Vec4::ZERO)
             }
             Filter::Linear => {

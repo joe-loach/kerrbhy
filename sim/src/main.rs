@@ -77,7 +77,9 @@ impl EventHandler for State {
         if self.accumulate || self.renderer.must_render() {
             self.renderer.compute(Some(encoder));
         }
+
         self.fullscreen.draw(encoder, &self.renderer.view(), target);
+
         self.gui.draw(ctx, encoder, target);
     }
 
