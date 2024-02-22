@@ -21,6 +21,10 @@ rayon = "1.8"
 thiserror = "1.0"
 anyhow = "1.0"
 
+# profiling
+profiling = { version = "1.0", features = ["profile-with-puffin"] }
+puffin = "0.19"
+
 # other
 bytemuck = { version = "1.14", features = ["derive"] }
 glam = { version = "0.25", features = ["bytemuck"] }
@@ -32,6 +36,10 @@ opt-level = 3
 [profile.dev.package.glam]
 opt-level = 3
 [profile.dev.package.egui]
+opt-level = 3
+[profile.dev.package.puffin]
+opt-level = 3
+[profile.dev.package.puffin_egui]
 opt-level = 3
 [profile.dev.package.wgpu]
 opt-level = 3

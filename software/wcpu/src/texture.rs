@@ -12,6 +12,7 @@ pub struct Texture<const DIM: u32> {
 }
 
 impl<const DIM: u32> Texture<DIM> {
+    #[profiling::function]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, image::ImageError> {
         assert!(DIM > 0 && DIM <= 2, "Incorrect dimensions");
 

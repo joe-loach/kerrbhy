@@ -52,16 +52,19 @@ impl Renderer {
         self.marcher.view()
     }
 
+    #[profiling::function]
     pub fn update(&mut self, params: Params) {
         self.dirty = self.marcher.update(params.width, params.height, params.fov);
     }
 
+    #[profiling::function]
     pub fn compute(&mut self, encoder: Option<&mut wgpu::CommandEncoder>) {
         let encoder = self.encoder.as_mut().or(encoder).expect("no encoder");
 
         self.marcher.record(encoder);
     }
 
+    #[profiling::function]
     pub fn into_frame(self, encoder: Option<wgpu::CommandEncoder>) -> Vec<u8> {
         let mut encoder = self.encoder.or(encoder).expect("no encoder");
 
@@ -88,13 +91,16 @@ impl Renderer {
         // block until we get a result
         if let Ok(Ok(())) = rx.recv() {
             let data = slice.get_mapped_range();
-
-            // trim the edges of the data
-            // to make sure that the resulting image is the correct size
-            let whole_rows = data.par_chunks_exact(aligned_row as usize);
-            let result: Vec<u8> = whole_rows
-                .flat_map(|chunk| chunk.split_at(row as usize).0.to_vec())
-                .collect();
+            
+            let result = {
+                profiling::scope!("Trimming image");
+                // trim the edges of the data
+                // to make sure that the resulting image is the correct size
+                let whole_rows = data.par_chunks_exact(aligned_row as usize);
+                whole_rows
+                    .flat_map(|chunk| chunk.split_at(row as usize).0.to_vec())
+                    .collect()
+            };
 
             // get rid of the buffer from the CPU.
             drop(data);
@@ -107,6 +113,7 @@ impl Renderer {
     }
 }
 
+#[profiling::function]
 fn copy_texture_to_buffer(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,

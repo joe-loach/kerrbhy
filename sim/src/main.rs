@@ -41,13 +41,23 @@ impl State {
         }
     }
 
+    #[profiling::function]
     fn ui(&mut self, ctx: egui::Context, _state: &event::State) {
-        egui::Window::new("Config").show(&ctx, |ui| {
+        egui::Window::new("Info").show(&ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Fov: ");
                 ui.drag_angle(&mut self.fov);
             });
             ui.checkbox(&mut self.accumulate, "Accumulate?");
+
+            let on = !ui
+                .collapsing("Profiler", |ui| {
+                    profiling::scope!("profiler");
+                    puffin_egui::profiler_ui(ui);
+                })
+                .fully_closed();
+
+            puffin::set_scopes_on(on);
         });
     }
 }

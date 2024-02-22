@@ -50,6 +50,7 @@ impl Fullscreen {
         }
     }
 
+    #[profiling::function]
     pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,

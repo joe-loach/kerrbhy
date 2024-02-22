@@ -30,32 +30,37 @@ pub struct Marcher {
 }
 
 impl Marcher {
+    #[profiling::function]
     pub fn new(device: Arc<wgpu::Device>, queue: &wgpu::Queue) -> Self {
         let pipeline = create_pipeline(&device);
 
-        let star_data = include_bytes!("../../../textures/starmap_2020_4k.exr");
-        let star_image = image::load_from_memory(star_data).unwrap();
-        let star_bytes = star_image.to_rgba8();
+        let stars = {
+            profiling::scope!("loading textures");
 
-        let stars = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: None,
-                size: wgpu::Extent3d {
-                    width: star_image.width(),
-                    height: star_image.height(),
-                    depth_or_array_layers: 1,
+            let star_data = include_bytes!("../../../textures/starmap_2020_4k.exr");
+            let star_image = image::load_from_memory(star_data).unwrap();
+            let star_bytes = star_image.to_rgba8();
+
+            device.create_texture_with_data(
+                queue,
+                &wgpu::TextureDescriptor {
+                    label: None,
+                    size: wgpu::Extent3d {
+                        width: star_image.width(),
+                        height: star_image.height(),
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
                 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::MipMajor,
-            &star_bytes,
-        );
+                wgpu::util::TextureDataOrder::MipMajor,
+                &star_bytes,
+            )
+        };
         let star_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
@@ -89,6 +94,7 @@ impl Marcher {
         self.texture().size()
     }
 
+    #[profiling::function]
     pub fn update(&mut self, width: u32, height: u32, fov: f32) -> bool {
         let dimensions_changed = width != self.texture.width() || height != self.texture.height();
         let fov_changed = self.fov != fov;
@@ -105,6 +111,7 @@ impl Marcher {
         dirty
     }
 
+    #[profiling::function]
     pub fn record(&mut self, encoder: &mut wgpu::CommandEncoder) {
         let [width, height] = [self.texture.width(), self.texture.height()];
 
@@ -151,6 +158,7 @@ impl Marcher {
         self.sample_no += 1;
     }
 
+    #[profiling::function]
     fn recreate_buffer(&mut self, width: u32, height: u32) {
         self.texture = self.device.create_texture(&TextureDescriptor {
             size: wgpu::Extent3d {

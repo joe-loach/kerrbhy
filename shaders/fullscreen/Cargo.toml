@@ -8,5 +8,7 @@ license.workspace = true
 graphics = { path = "../../hardware/graphics" }
 event = { path = "../../hardware/event" }
 
+profiling = { workspace = true }
+
 [build-dependencies]
 wgsl-bindgen = { path = "../../shaders/wgsl-bindgen" }

@@ -167,6 +167,8 @@ where
                         target.exit();
                     }
                     WindowEvent::RedrawRequested => {
+                        profiling::scope!("event::redraw");
+
                         timer.tick();
 
                         // try to get the next texture
@@ -210,18 +212,29 @@ where
                             surface: &config,
                         };
 
+                        {
+                            profiling::scope!("app::update");
                             app.update(&state);
+                        }
 
                         let target = frame.texture.create_view(&Default::default());
 
                         let mut encoder =
                             device.create_command_encoder(&CommandEncoderDescriptor::default());
 
+                        {
+                            profiling::scope!("app::draw");
                             app.draw(&mut state, &mut encoder, &target);
+                        }
 
-                        queue.submit(Some(encoder.finish()));
-                        frame.present();
+                        {
+                            profiling::scope!("encoder::submit");
 
+                            queue.submit(Some(encoder.finish()));
+                            frame.present();
+                        }
+
+                        profiling::finish_frame!();
                     }
                     _ => (),
                 }
@@ -240,6 +253,7 @@ where
     Ok(())
 }
 
+#[profiling::function]
 fn reconfigure_surface(
     window: &Window,
     surface: &wgpu::Surface,

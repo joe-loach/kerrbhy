@@ -34,6 +34,7 @@ impl FrameBuffer {
         }
     }
 
+    #[profiling::function]
     #[inline]
     pub fn par_for_each(&mut self, f: impl (Fn(Vec2) -> Vec4) + Sync) {
         self.buffer

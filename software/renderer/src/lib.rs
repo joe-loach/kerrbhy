@@ -77,6 +77,7 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D) -> Vec3 {
 }
 
 impl Renderer {
+    #[profiling::function]
     pub fn new(config: crate::Params) -> Self {
         let sampler = Sampler {
             filter_mode: Filter::Nearest,
@@ -93,6 +94,7 @@ impl Renderer {
         }
     }
 
+    #[profiling::function]
     pub fn compute(&mut self) {
         let origin = Vec3::new(0.0, 0.2, 3.3);
         let res = Vec2::new(self.config.width as f32, self.config.height as f32);
@@ -118,6 +120,7 @@ impl Renderer {
         });
     }
 
+    #[profiling::function]
     pub fn into_frame(self) -> Vec<u8> {
         self.buffer.into_vec()
     }
