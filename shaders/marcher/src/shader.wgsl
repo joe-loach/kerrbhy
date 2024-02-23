@@ -34,8 +34,7 @@ fn sky(rd: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(stars, star_sampler, coord, 0.0).xyz;
 }
 
-fn gravitational_field(p: vec3<f32>) -> vec3<f32>
-{
+fn gravitational_field(p: vec3<f32>) -> vec3<f32> {
     let r = p / BLACKHOLE_RADIUS;
     let R = length(r);
     return -6.0 * r / (R * R * R * R * R);
@@ -72,14 +71,14 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     let dim: vec2<u32> = textureDimensions(buffer);
 
     // don't do work outside buffer
-    if (id.x >= dim.x || id.y >= dim.y) {
+    if id.x >= dim.x || id.y >= dim.y {
         return;
     }
 
     // calculate uv coordinates
     let res = vec2<f32>(dim.xy);
     let coord = vec2<f32>(id.xy);
-    let uv = 2.0 * (coord - 0.5*res) / max(res.x, res.y);
+    let uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
 
     let ro = pc.origin;
     let rd = normalize(vec3<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0));
