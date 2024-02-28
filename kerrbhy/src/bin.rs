@@ -93,6 +93,7 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
     let config = kerrbhy::Config {
         fov: fov.to_radians(),
         samples,
+        ..Default::default()
     };
 
     let mut renderer = if hardware {
