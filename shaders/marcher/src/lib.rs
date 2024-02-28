@@ -1,3 +1,4 @@
+#[allow(clippy::approx_constant)]
 mod shader;
 
 use std::sync::Arc;
@@ -14,6 +15,15 @@ use graphics::wgpu::{
 };
 use shader::bind_groups::*;
 
+pub struct Params {
+    pub width: u32,
+    pub height: u32,
+    pub origin: glam::Vec3,
+    pub fov: f32,
+    pub disk_radius: f32,
+    pub disk_height: f32,
+}
+
 pub struct Marcher {
     device: Arc<wgpu::Device>,
 
@@ -23,7 +33,8 @@ pub struct Marcher {
     star_sampler: Sampler,
 
     fov: f32,
-
+    disk_radius: f32,
+    disk_height: f32,
     sample_no: u32,
 
     texture: Texture,
@@ -77,6 +88,8 @@ impl Marcher {
             texture,
             stars,
             fov,
+            disk_radius: 8.0,
+            disk_height: 3.0,
             sample_no: 0,
             star_sampler,
         }
@@ -95,13 +108,26 @@ impl Marcher {
     }
 
     #[profiling::function]
-    pub fn update(&mut self, width: u32, height: u32, fov: f32) -> bool {
+    pub fn update(&mut self, params: Params) -> bool {
+        let Params {
+            width,
+            height,
+            origin: _,
+            fov,
+            disk_radius,
+            disk_height,
+            ..
+        } = params;
+
         let dimensions_changed = width != self.texture.width() || height != self.texture.height();
+        let disk_changed = self.disk_radius != disk_radius || self.disk_height != disk_height;
         let fov_changed = self.fov != fov;
 
+        self.disk_radius = disk_radius;
+        self.disk_height = disk_height;
         self.fov = fov;
 
-        let dirty = dimensions_changed || fov_changed;
+        let dirty = dimensions_changed || fov_changed || disk_changed;
 
         if dirty {
             self.recreate_buffer(width, height);
@@ -131,24 +157,19 @@ impl Marcher {
         );
 
         let push = shader::PushConstants {
-            origin: glam::Vec3::new(0.0, 0.2, 3.3),
+            origin: glam::Vec3::new(0.0, 0.5, 3.3),
             fov: self.fov,
             sample: self.sample_no,
-            pad0: 0,
-            pad1: 0,
-            pad2: 0,
+            disk_color: glam::Vec3::new(0.3, 0.2, 0.1),
+            disk_radius: self.disk_radius,
+            disk_height: self.disk_height,
+            pad: glam::UVec2::ZERO,
         };
 
         let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
         pass.set_pipeline(&self.pipeline);
         pass.set_push_constants(0, bytemuck::bytes_of(&push));
-        set_bind_groups(
-            &mut pass,
-            BindGroups {
-                bind_group0: &bind_group0,
-                bind_group1: &bind_group1,
-            },
-        );
+        shader::set_bind_groups(&mut pass, &bind_group0, &bind_group1);
 
         let [x, y, _z] = shader::compute::COMP_WORKGROUP_SIZE;
         let x = (width as f32 / x as f32).ceil() as u32;
@@ -173,7 +194,7 @@ impl Marcher {
 
 fn create_pipeline(device: &wgpu::Device) -> ComputePipeline {
     let module = {
-        let source = std::borrow::Cow::Borrowed(include_str!("shader.wgsl"));
+        let source = std::borrow::Cow::Borrowed(shader::SOURCE);
         device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(source),

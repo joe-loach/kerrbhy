@@ -1,3 +1,5 @@
+mod preprocess;
+
 use std::{
     fmt::Write,
     path::Path,
@@ -13,15 +15,24 @@ use wgsl_to_wgpu::{
     WriteOptions,
 };
 
+use crate::preprocess::ShaderBuilder;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Fmt(#[from] std::fmt::Error),
+    #[error("preprocess error")]
+    Preprocessing(#[from] preprocess::Error),
+    #[error("shader failed to parse")]
+    ShaderParse,
+    #[error("failed to create shader module")]
+    CreateModuleError(#[from] wgsl_to_wgpu::CreateModuleError),
 }
 
-pub fn create_bindings_for(file: impl AsRef<Path>) -> Result<(), Error> {
+/// Create WGPU bindings and preprocess a shader
+pub fn build_shader(file: impl AsRef<Path>) -> Result<(), Error> {
     let path = file.as_ref();
     assert!(
         path.is_file(),
@@ -29,7 +40,22 @@ pub fn create_bindings_for(file: impl AsRef<Path>) -> Result<(), Error> {
     );
 
     println!("cargo:rerun-if-changed={}", path.display());
-    let wgsl_source = std::fs::read_to_string(path)?;
+
+    let builder = ShaderBuilder::new(path).build()?;
+
+    // make sure we re-reun for every included file too
+    for included in builder.includes() {
+        println!("cargo:rerun-if-changed={}", included.display());
+    }
+
+    let wgsl_source = builder.wgsl();
+
+    // check the shader before creating the module for better errors
+    if let Err(e) = naga::front::wgsl::parse_str(&wgsl_source) {
+        e.emit_to_stderr_with_path(&wgsl_source, path);
+
+        return Err(Error::ShaderParse);
+    }
 
     // Generate the Rust bindings and write to a file.
     let mut text = String::new();
@@ -39,11 +65,14 @@ pub fn create_bindings_for(file: impl AsRef<Path>) -> Result<(), Error> {
 
     writeln!(&mut text, "use graphics::wgpu;\n")?;
 
+    writeln!(&mut text, "pub static SOURCE: &str = r##\"{}\"##;\n", &wgsl_source)?;
+
     let file_name = path
         .file_name()
         .unwrap()
         .to_str()
         .expect("failed to convert filename to utf8 string");
+
     let module = &create_shader_module(
         &wgsl_source,
         file_name,
@@ -52,8 +81,7 @@ pub fn create_bindings_for(file: impl AsRef<Path>) -> Result<(), Error> {
             matrix_vector_types: wgsl_to_wgpu::MatrixVectorTypes::Glam,
             ..Default::default()
         },
-    )
-    .unwrap();
+    )?;
 
     // make sure wgpu is imported into every module
     let re = Regex::new(r"mod (?<name>\w+) \{").expect("Regex compilation failed");
@@ -62,6 +90,7 @@ pub fn create_bindings_for(file: impl AsRef<Path>) -> Result<(), Error> {
         format!("mod {mod_name} {{\n    use graphics::wgpu;\n")
     };
     let module = replace_all(&re, module, replacement);
+    let module = module.replacen(r#"include_str!("shader.wgsl")"#, "SOURCE", 1);
 
     // add the rest of the module
     text += &module;

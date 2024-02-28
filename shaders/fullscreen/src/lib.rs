@@ -64,9 +64,6 @@ impl Fullscreen {
                 color_sampler: &self.sampler,
             },
         );
-        let groups = shader::bind_groups::BindGroups {
-            bind_group0: &binding,
-        };
 
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -83,7 +80,7 @@ impl Fullscreen {
             occlusion_query_set: None,
         });
         pass.set_pipeline(&self.pipeline);
-        shader::bind_groups::set_bind_groups(&mut pass, groups);
+        shader::set_bind_groups(&mut pass, &binding);
         // only need to draw 3 vertices
         pass.draw(0..3, 0..1);
     }

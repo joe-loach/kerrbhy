@@ -20,3 +20,5 @@ anyhow = { workspace = true }
 
 profiling = { workspace = true }
 puffin = { workspace = true }
+
+glam = { workspace = true }

@@ -3,18 +3,358 @@
 // Changes made to this file will not be saved.
 use graphics::wgpu;
 
+pub static SOURCE: &str = r##"// https://gist.github.com/munrocket/236ed5ba7e409b8bdf1ff6eca5dcdc39
+// https://www.shadertoy.com/view/WttyWX
+
+var<private> state: vec4<u32>;
+
+// Creates a good seed for the rng
+fn seed_rng(p: vec2<u32>, r: vec2<u32>, s: u32) {
+    state = vec4<u32>(
+        (p.x << 16) ^ p.y,
+        p.x ^ r.y * s,
+        p.y ^ r.x * s,
+        (r.x << 16) ^ r.y,
+    );
+}
+
+// https://www.pcg-random.org/
+// http://www.jcgt.org/published/0009/03/02/
+fn pcg4d(p: vec4u) -> vec4u {
+    var v = p * 1664525u + 1013904223u;
+    v.x += v.y * v.w; v.y += v.z * v.x; v.z += v.x * v.y; v.w += v.y * v.z;
+    v ^= v >> vec4u(16u);
+    v.x += v.y * v.w; v.y += v.z * v.x; v.z += v.x * v.y; v.w += v.y * v.z;
+    return v;
+}
+
+fn rand() -> f32 {
+    state = pcg4d(state);
+    return f32(state.x) / f32(0xffffffffu);
+}
+
+fn rand2() -> vec2<f32> {
+    state = pcg4d(state);
+    return vec2<f32>(state.xy) / f32(0xffffffffu);
+}
+
+fn rand22(f: vec2<f32>) {
+
+}
+
+fn rand3() -> vec3<f32> {
+    state = pcg4d(state);
+    return vec3<f32>(state.xyz) / f32(0xffffffffu);
+}
+
+fn rand4() -> vec4<f32> {
+    state = pcg4d(state);
+    return vec4<f32>(state) / f32(0xffffffffu);
+}
+
+fn udir2() -> vec2<f32> {
+    // https://mathworld.wolfram.com/DiskPointPicking.html
+    let u = rand();     // [0, 1]
+    let r = TAU * u;    // [0, 2pi] for trig
+    // convert to cartesian
+    let s = sin(r);
+    let c = cos(r);
+    return vec2(s, c);
+}
+
+fn udir3() -> vec3<f32> {
+    // https://mathworld.wolfram.com/SpherePointPicking.html
+    let uv = rand2();
+    let r = vec2<f32>(TAU * uv.x, acos(2.0 * uv.y - 1.0));
+    // convert from spherical to cartesian
+    // https://uk.mathworks.com/help/symbolic/transform-spherical-coordinates-and-plot.html
+    let s = sin(r);
+    let c = cos(r);
+    return vec3<f32>(c.x * s.y, s.x * s.y, c.y);
+}
+
+fn mod289(x: vec4f) -> vec4f { return x - floor(x * (1. / 289.)) * 289.; }
+fn perm4(x: vec4f) -> vec4f { return mod289(((x * 34.) + 1.) * x); }
+
+fn noise3(p: vec3f) -> f32 {
+    let a = floor(p);
+    var d: vec3f = p - a;
+    d = d * d * (3. - 2. * d);
+
+    let b = a.xxyy + vec4f(0., 1., 0., 1.);
+    let k1 = perm4(b.xyxy);
+    let k2 = perm4(k1.xyxy + b.zzww);
+
+    let c = k2 + a.zzzz;
+    let k3 = perm4(c);
+    let k4 = perm4(c + 1.);
+
+    let o1 = fract(k3 * (1. / 41.));
+    let o2 = fract(k4 * (1. / 41.));
+
+    let o3 = o2 * d.z + o1 * (1. - d.z);
+    let o4 = o3.yw * d.x + o3.xz * (1. - d.x);
+
+    return o4.y * d.y + o4.x * (1. - d.y);
+}
+
+fn fbm(p: vec3f, iter: u32) -> f32
+{
+    var value = 0.0;
+    var accum = 0.0;
+    var atten = 0.5;
+    var scale = 1.0;
+
+    for(var i = 0u; i < iter; i++)
+    {
+        value += atten * noise3(scale * p);
+        accum += atten;
+        atten *= 0.5;
+        scale *= 2.5;
+    }
+
+    return select(value / accum, value, accum == 0.0);
+}
+// Constants
+const PI: f32 = 3.1415926535897932384626433832795;
+const TAU: f32 = 2.0 * PI;
+const FRAC_1_PI: f32 = 1.0 / PI;
+const FRAC_1_2PI: f32 = 1.0 / (2.0 * PI);
+
+fn isNan(val: vec3<f32>) -> vec3<bool> {
+    return !(val < vec3<f32>(0.0) || vec3<f32>(0.0) < val || val == vec3<f32>(0.0));
+}
+
+fn isInf(val: vec3<f32>) -> vec3<bool> {
+    return (val != vec3<f32>(0.0) && val * 2.0 == val);
+}
+
+const MAX_STEPS: u32 = 128u;
+const MAX_BOUNCES: u32 = 4u;
+const DELTA: f32 = 0.05;
+const BLACKHOLE_RADIUS: f32 = 0.6;
+const SKYBOX_RADIUS: f32 = 3.6;
+
+struct PushConstants {
+    origin: vec3<f32>,
+    fov: f32,
+    disk_color: vec3<f32>,
+    disk_radius: f32,
+    disk_height: f32,
+    sample: u32,
+    pad: vec2<u32>,
+}
+
+@group(0) @binding(0)
+var buffer: texture_storage_2d<rgba8unorm, read_write>;
+
+@group(1) @binding(1)
+var star_sampler: sampler;
+@group(1) @binding(2)
+var stars: texture_2d<f32>;
+
+var<push_constant> pc: PushConstants;
+
+fn rotate(v: vec2<f32>, theta: f32) -> vec2<f32> {
+    let s = sin(theta);
+    let c = cos(theta);
+    return vec2<f32>(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+const XYZ2sRGB: mat3x3<f32> = mat3x3<f32>(
+    3.240, -1.537, -0.499,
+    -0.969, 1.876, 0.042,
+    0.056, -0.204, 1.057
+);
+
+// Convert XYZ to sRGB
+fn xyz2rgb(color_xyz: vec3<f32>) -> vec3<f32> {
+    return color_xyz * XYZ2sRGB;
+}
+
+fn blackbodyXYZ(t: f32) -> vec3<f32> {
+    // https://en.wikipedia.org/wiki/Planckian_locus
+    let u = (0.860117757 + 1.54118254E-4 * t + 1.28641212E-7 * t * t) / (1.0 + 8.42420235E-4 * t + 7.08145163E-7 * t * t);
+    let v = (0.317398726 + 4.22806245E-5 * t + 4.20481691E-8 * t * t) / (1.0 - 2.89741816E-5 * t + 1.61456053E-7 * t * t);
+
+    // https://en.wikipedia.org/wiki/CIE_1960_color_space
+    // https://en.wikipedia.org/wiki/XYZ_color_space
+
+    // convert to x and y in CIE xy
+    let xy = vec2<f32>(3.0 * u, 2.0 * v) / (2.0 * u - 8.0 * v + 4.0);
+
+    // convert to XYZ
+    return vec3(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y);
+}
+
+struct DiskInfo {
+    // strength of the emissive color
+    emission: vec3<f32>,
+    // distance travelled through volume
+    distance: f32,
+}
+
+fn disk(p: vec3<f32>) -> DiskInfo {
+    var ret: DiskInfo;
+    ret.emission = vec3<f32>(0.0);
+    ret.distance = 0.0;
+
+    if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_height {
+        return ret;
+    }
+
+    let n0 = fbm(20.0 * vec3<f32>(rotate(p.xz, (8.0 * p.y) + (4.0 * length(p.xz))), p.y).xzy, 8u);
+
+    let d_falloff = length(vec3(0.12, 7.50, 0.12) * p);
+    let e_falloff = length(vec3(0.20, 8.00, 0.20) * p);
+
+    // TODO: add random varitions to temperature
+    let t = rand();
+    var e = xyz2rgb(blackbodyXYZ((4000.0 * t * t) + 2000.0));
+    e = clamp(
+        e / max(max(max(e.r, e.g), e.b), 0.01),
+        vec3<f32>(0.0),
+        vec3<f32>(1.0)
+    );
+
+    let h_p = 0.5 * p;
+    e *= 128.0 * max(n0 - e_falloff, 0.0) / (dot(h_p, h_p) + 0.05);
+
+    ret.emission = e;
+    ret.distance = 128.0 * max(n0 - d_falloff, 0.0);
+
+    return ret;
+}
+
+fn sky(rd: vec3<f32>) -> vec3<f32> {
+    // https://en.wikipedia.org/wiki/Azimuth
+    let azimuth = atan2(rd.z, rd.x);
+    let inclination = asin(-rd.y);
+
+    let coord = vec2<f32>(
+        0.5 - (azimuth * FRAC_1_2PI),
+        0.5 - (inclination * FRAC_1_PI)
+    );
+
+    return textureSampleLevel(stars, star_sampler, coord, 0.0).xyz;
+}
+
+fn gravitational_field(p: vec3<f32>) -> vec3<f32> {
+    let r = p / BLACKHOLE_RADIUS;
+    let R = length(r);
+    return -6.0 * r / (R * R * R * R * R);
+}
+
+fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
+    var attenuation = vec3<f32>(1.0);
+    var r = vec3<f32>(0.0);
+
+    var p = ro + (rand() * DELTA * rd);
+    var v = rd;
+
+    var bounces = 0u;
+
+    for (var i = 0u; i < MAX_STEPS; i++) {
+        if bounces > MAX_BOUNCES {
+            // discard sample, light gets stuck
+            return vec3<f32>(-1.0);
+        }
+
+        if dot(p, p) < BLACKHOLE_RADIUS * BLACKHOLE_RADIUS {
+            return r;
+        }
+
+        if dot(p, p) > SKYBOX_RADIUS * SKYBOX_RADIUS {
+            break;
+        }
+
+        let sample = disk(p);
+        r += attenuation * sample.emission * DELTA;
+
+        if sample.distance > 0.0 {
+            // hit the disc?
+
+            let absorbance = exp(-1.0 * DELTA * sample.distance);
+            if absorbance < rand() {
+                // change the direction of v but keep its magnitude
+                // TODO: maybe just normalize udir3 instead
+                v = length(v) * reflect(normalize(v), udir3());
+
+                attenuation *= pc.disk_color;
+
+                bounces++;
+            }
+        }
+
+        // TODO: use RK4
+        // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
+        let g = gravitational_field(p);
+        v += g * DELTA;
+        p += v * DELTA;
+    }
+
+    r += attenuation * sky(normalize(v));
+
+    return r;
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dim: vec2<u32> = textureDimensions(buffer);
+
+    // don't do work outside buffer
+    if id.x >= dim.x || id.y >= dim.y {
+        return;
+    }
+
+    // seed the rng
+    seed_rng(id.xy, dim.xy, pc.sample);
+
+    let res = vec2<f32>(dim.xy);
+    let coord = vec2<f32>(id.xy);
+    // calculate uv coordinates
+    var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
+    uv.y = -uv.y;
+
+    // TODO: add AA filtering to the uv
+    // https://en.wikipedia.org/wiki/Spatial_anti-aliasing
+
+    let ro = pc.origin;
+    let rd = normalize(vec3<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0));
+
+    var color = render(ro, rd);
+
+    // remove unused samples
+    color = select(
+        color,
+        vec3<f32>(0.0),
+        any(color < vec3<f32>(0.0)) || any(isInf(color)) || any(isNan(color))
+    );
+
+    // gamma correction
+    color = pow(color, vec3<f32>(0.45));
+
+    // accumulate the color in the buffer
+    let old_color = textureLoad(buffer, id.xy);
+    let acc = mix(old_color, vec4<f32>(color, 1.0), 1.0 / f32(pc.sample + 1));
+
+    textureStore(buffer, id.xy, acc);
+}
+"##;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PushConstants {
     pub origin: glam::Vec3,
     pub fov: f32,
+    pub disk_color: glam::Vec3,
+    pub disk_radius: f32,
+    pub disk_height: f32,
     pub sample: u32,
-    pub pad0: u32,
-    pub pad1: u32,
-    pub pad2: u32,
+    pub pad: glam::UVec2,
 }
 const _: () = assert!(
-    std::mem::size_of:: < PushConstants > () == 32,
+    std::mem::size_of:: < PushConstants > () == 48,
     "size of PushConstants does not match WGSL"
 );
 const _: () = assert!(
@@ -26,27 +366,34 @@ const _: () = assert!(
     "offset of PushConstants.fov does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, sample) == 16,
+    memoffset::offset_of!(PushConstants, disk_color) == 16,
+    "offset of PushConstants.disk_color does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, disk_radius) == 28,
+    "offset of PushConstants.disk_radius does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, disk_height) == 32,
+    "offset of PushConstants.disk_height does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, sample) == 36,
     "offset of PushConstants.sample does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, pad0) == 20,
-    "offset of PushConstants.pad0 does not match WGSL"
+    memoffset::offset_of!(PushConstants, pad) == 40,
+    "offset of PushConstants.pad does not match WGSL"
 );
-const _: () = assert!(
-    memoffset::offset_of!(PushConstants, pad1) == 24,
-    "offset of PushConstants.pad1 does not match WGSL"
-);
-const _: () = assert!(
-    memoffset::offset_of!(PushConstants, pad2) == 28,
-    "offset of PushConstants.pad2 does not match WGSL"
-);
+pub const PI: f32 = 3.1415927f32;
+pub const TAU: f32 = 6.2831855f32;
+pub const FRAC_1_PI: f32 = 0.31830987f32;
+pub const FRAC_1_2PI: f32 = 0.15915494f32;
 pub const MAX_STEPS: u32 = 128u32;
+pub const MAX_BOUNCES: u32 = 4u32;
 pub const DELTA: f32 = 0.05f32;
 pub const BLACKHOLE_RADIUS: f32 = 0.6f32;
 pub const SKYBOX_RADIUS: f32 = 3.6f32;
-pub const FRAC_1_PI: f32 = 0.31830987f32;
-pub const FRAC_1_2PI: f32 = 0.15915494f32;
 pub mod bind_groups {
     use graphics::wgpu;
 
@@ -159,18 +506,25 @@ pub mod bind_groups {
             render_pass.set_bind_group(1, &self.0, &[]);
         }
     }
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub struct BindGroups<'a> {
         pub bind_group0: &'a BindGroup0,
         pub bind_group1: &'a BindGroup1,
     }
-    pub fn set_bind_groups<'a>(
-        pass: &mut wgpu::ComputePass<'a>,
-        bind_groups: BindGroups<'a>,
-    ) {
-        bind_groups.bind_group0.set(pass);
-        bind_groups.bind_group1.set(pass);
+    impl<'a> BindGroups<'a> {
+        pub fn set(&self, pass: &mut wgpu::ComputePass<'a>) {
+            self.bind_group0.set(pass);
+            self.bind_group1.set(pass);
+        }
     }
+}
+pub fn set_bind_groups<'a>(
+    pass: &mut wgpu::ComputePass<'a>,
+    bind_group0: &'a bind_groups::BindGroup0,
+    bind_group1: &'a bind_groups::BindGroup1,
+) {
+    bind_group0.set(pass);
+    bind_group1.set(pass);
 }
 pub mod compute {
     use graphics::wgpu;
@@ -192,7 +546,7 @@ pub mod compute {
 }
 pub const ENTRY_COMP: &str = "comp";
 pub fn create_shader_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-    let source = std::borrow::Cow::Borrowed(include_str!("shader.wgsl"));
+    let source = std::borrow::Cow::Borrowed(SOURCE);
     device
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,

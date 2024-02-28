@@ -3,6 +3,39 @@
 // Changes made to this file will not be saved.
 use graphics::wgpu;
 
+pub static SOURCE: &str = r##"struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>
+};
+
+@vertex
+fn vert(@builtin(vertex_index) index: u32) -> VertexOutput {
+    let uv = vec2<f32>(f32((index << 1) & 2), f32(index & 2));
+
+    var out: VertexOutput;
+    out.uv = uv;
+    out.position = vec4<f32>(uv * 2.0 - 1.0, 0.0, 1.0);
+
+    return out;
+}
+
+@group(0) @binding(0)
+var color_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var color_sampler: sampler;
+
+@fragment
+fn frag(in: VertexOutput) -> @location(0) vec4<f32> {
+    var uv = vec2<f32>(
+        in.uv.x,
+        1.0 - in.uv.y
+    );
+    let color = textureSample(color_texture, color_sampler, uv).rgb;
+    return vec4<f32>(color, 1.0);
+}
+
+"##;
+
 pub mod bind_groups {
     use graphics::wgpu;
 
@@ -69,16 +102,21 @@ pub mod bind_groups {
             render_pass.set_bind_group(0, &self.0, &[]);
         }
     }
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub struct BindGroups<'a> {
         pub bind_group0: &'a BindGroup0,
     }
-    pub fn set_bind_groups<'a>(
-        pass: &mut wgpu::RenderPass<'a>,
-        bind_groups: BindGroups<'a>,
-    ) {
-        bind_groups.bind_group0.set(pass);
+    impl<'a> BindGroups<'a> {
+        pub fn set(&self, pass: &mut wgpu::RenderPass<'a>) {
+            self.bind_group0.set(pass);
+        }
     }
+}
+pub fn set_bind_groups<'a>(
+    pass: &mut wgpu::RenderPass<'a>,
+    bind_group0: &'a bind_groups::BindGroup0,
+) {
+    bind_group0.set(pass);
 }
 pub const ENTRY_VERT: &str = "vert";
 pub const ENTRY_FRAG: &str = "frag";
@@ -104,7 +142,7 @@ pub fn vert_entry() -> VertexEntry<0> {
     }
 }
 pub fn create_shader_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-    let source = std::borrow::Cow::Borrowed(include_str!("shader.wgsl"));
+    let source = std::borrow::Cow::Borrowed(SOURCE);
     device
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,

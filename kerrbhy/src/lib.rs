@@ -1,3 +1,4 @@
+use glam::vec3;
 pub use hardware_renderer::Renderer as Hardware;
 pub use software_renderer::Renderer as Software;
 
@@ -25,19 +26,6 @@ impl Default for Config {
     }
 }
 
-impl From<hardware_renderer::Params> for Config {
-    fn from(value: hardware_renderer::Params) -> Self {
-        let hardware_renderer::Params { width, height, fov } = value;
-
-        Config {
-            width,
-            height,
-            fov,
-            samples: 1,
-        }
-    }
-}
-
 impl From<Config> for hardware_renderer::Params {
     fn from(value: Config) -> Self {
         let Config {
@@ -47,24 +35,13 @@ impl From<Config> for hardware_renderer::Params {
             samples: _,
         } = value;
 
-        hardware_renderer::Params { width, height, fov }
-    }
-}
-
-impl From<software_renderer::Params> for Config {
-    fn from(value: software_renderer::Params) -> Self {
-        let software_renderer::Params {
+        hardware_renderer::Params {
             width,
             height,
             fov,
-            samples,
-        } = value;
-
-        Config {
-            width,
-            height,
-            fov,
-            samples,
+            origin: vec3(0.0, 0.2, 3.3),
+            disk_radius: 8.0,
+            disk_height: 3.0
         }
     }
 }

@@ -6,11 +6,7 @@ use rayon::{
     slice::ParallelSlice,
 };
 
-pub struct Params {
-    pub width: u32,
-    pub height: u32,
-    pub fov: f32,
-}
+pub use marcher::Params;
 
 pub struct Renderer {
     device: Arc<wgpu::Device>,
@@ -54,7 +50,7 @@ impl Renderer {
 
     #[profiling::function]
     pub fn update(&mut self, params: Params) {
-        self.dirty = self.marcher.update(params.width, params.height, params.fov);
+        self.dirty = self.marcher.update(params);
     }
 
     #[profiling::function]
@@ -91,7 +87,7 @@ impl Renderer {
         // block until we get a result
         if let Ok(Ok(())) = rx.recv() {
             let data = slice.get_mapped_range();
-            
+
             let result = {
                 profiling::scope!("Trimming image");
                 // trim the edges of the data

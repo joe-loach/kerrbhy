@@ -32,5 +32,6 @@ bytemuck = { workspace = true }
 winit = { workspace = true }
 anyhow = { workspace = true }
 
+glam = { workspace = true }
 
 clap = { version = "4.5", features = ["derive"] }

@@ -12,3 +12,4 @@ profiling = { workspace = true }
 
 [build-dependencies]
 wgsl-bindgen = { path = "../../shaders/wgsl-bindgen" }
+anyhow = { workspace = true }

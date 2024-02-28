@@ -6,5 +6,6 @@ license.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-wgsl_to_wgpu = "0.5"
+wgsl_to_wgpu = "0.6"
 regex = "1.10"
+naga = "0.19"

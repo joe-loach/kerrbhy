@@ -892,6 +892,7 @@ dependencies = [
 name = "fullscreen"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "event",
  "graphics",
  "profiling",
@@ -1273,6 +1274,7 @@ dependencies = [
  "bytemuck",
  "clap",
  "eframe",
+ "glam",
  "graphics",
  "hardware-renderer",
  "image",
@@ -1390,6 +1392,7 @@ dependencies = [
 name = "marcher"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytemuck",
  "event",
  "glam",
@@ -1447,25 +1450,6 @@ checksum = "9d811f3e15f28568be3407c8e7fdb6514c1cda3cb30683f15b6a1a1dc4ea14a7"
 dependencies = [
  "adler",
  "simd-adler32",
-]
-
-[[package]]
-name = "naga"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae585df4b6514cf8842ac0f1ab4992edc975892704835b549cf818dc0191249e"
-dependencies = [
- "bit-set",
- "bitflags 2.4.2",
- "codespan-reporting",
- "hexf-parse",
- "indexmap",
- "log",
- "num-traits",
- "rustc-hash",
- "termcolor",
- "thiserror",
- "unicode-xid",
 ]
 
 [[package]]
@@ -2034,6 +2018,7 @@ dependencies = [
  "egui",
  "event",
  "fullscreen",
+ "glam",
  "graphics",
  "hardware-renderer",
  "profiling",
@@ -2659,7 +2644,7 @@ dependencies = [
  "cfg_aliases",
  "js-sys",
  "log",
- "naga 0.19.0",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle 0.6.0",
@@ -2670,7 +2655,7 @@ dependencies = [
  "web-sys",
  "wgpu-core",
  "wgpu-hal",
- "wgpu-types 0.19.0",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -2686,7 +2671,7 @@ dependencies = [
  "codespan-reporting",
  "indexmap",
  "log",
- "naga 0.19.0",
+ "naga",
  "once_cell",
  "parking_lot",
  "profiling",
@@ -2696,7 +2681,7 @@ dependencies = [
  "thiserror",
  "web-sys",
  "wgpu-hal",
- "wgpu-types 0.19.0",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -2726,7 +2711,7 @@ dependencies = [
  "libloading 0.8.1",
  "log",
  "metal",
- "naga 0.19.0",
+ "naga",
  "objc",
  "once_cell",
  "parking_lot",
@@ -2739,19 +2724,8 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "web-sys",
- "wgpu-types 0.19.0",
+ "wgpu-types",
  "winapi",
-]
-
-[[package]]
-name = "wgpu-types"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d5ed5f0edf0de351fe311c53304986315ce866f394a2e6df0c4b3c70774bcdd"
-dependencies = [
- "bitflags 2.4.2",
- "js-sys",
- "web-sys",
 ]
 
 [[package]]
@@ -2769,6 +2743,7 @@ dependencies = [
 name = "wgsl-bindgen"
 version = "0.1.0"
 dependencies = [
+ "naga",
  "regex",
  "thiserror",
  "wgsl_to_wgpu",
@@ -2776,18 +2751,18 @@ dependencies = [
 
 [[package]]
 name = "wgsl_to_wgpu"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf4721cbedbbf3bfa1a89d7bdb0e5b2120a1a391f649634e8585dcb9e02e9aa"
+checksum = "7efa7dd90928d5112569129d1bd6feef2f1deee587d5b19583ebbe4c9ac99987"
 dependencies = [
  "case",
- "naga 0.14.2",
+ "naga",
  "prettyplease",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
  "thiserror",
- "wgpu-types 0.18.0",
+ "wgpu-types",
 ]
 
 [[package]]

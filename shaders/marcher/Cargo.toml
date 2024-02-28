@@ -17,4 +17,5 @@ glam = { workspace = true }
 profiling = { workspace = true }
 
 [build-dependencies]
-wgsl-bindgen = { path = "../../shaders/wgsl-bindgen" }
+wgsl-bindgen = { path = "../wgsl-bindgen" }
+anyhow = { workspace = true }
