@@ -15,6 +15,8 @@ pub use texture::{
 
 pub struct FrameBuffer {
     buffer: image::Rgba32FImage,
+    width: u32,
+    height: u32,
 }
 
 impl FrameBuffer {
@@ -22,6 +24,8 @@ impl FrameBuffer {
     pub fn new(width: u32, height: u32) -> Self {
         Self {
             buffer: image::ImageBuffer::new(width, height),
+            width,
+            height,
         }
     }
 
@@ -45,6 +49,14 @@ impl FrameBuffer {
 
                 *p = image::Rgba(color.to_array());
             });
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     pub fn into_vec(self) -> Vec<u8> {

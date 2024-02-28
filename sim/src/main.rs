@@ -2,7 +2,6 @@ mod gui;
 
 use event::EventHandler;
 use fullscreen::Fullscreen;
-use glam::vec3;
 use graphics::wgpu;
 use gui::GuiState;
 use hardware_renderer::*;
@@ -18,10 +17,7 @@ struct App {
     gui: GuiState,
 
     accumulate: bool,
-    fov: f32,
-    origin: glam::Vec3,
-    disk_radius: f32,
-    disk_height: f32,
+    config: Config,
 }
 
 impl App {
@@ -41,10 +37,7 @@ impl App {
             gui,
 
             accumulate: true,
-            fov: 90.0_f32.to_radians(),
-            origin: vec3(0.0, 0.2, 3.3),
-            disk_radius: 8.0,
-            disk_height: 3.0,
+            config: Config::default(),
         }
     }
 
@@ -57,16 +50,16 @@ impl App {
 
             ui.horizontal(|ui| {
                 ui.label("Fov: ");
-                ui.drag_angle(&mut self.fov);
+                ui.drag_angle(&mut self.config.fov);
             });
             ui.add(
-                egui::DragValue::new(&mut self.disk_radius)
+                egui::DragValue::new(&mut self.config.disk_radius)
                     .speed(0.1)
                     .prefix("Disk radius: ")
                     .clamp_range(0.0..=10.0),
             );
             ui.add(
-                egui::DragValue::new(&mut self.disk_height)
+                egui::DragValue::new(&mut self.config.disk_height)
                     .speed(0.1)
                     .prefix("Disk height: ")
                     .clamp_range(0.0..=10.0),
@@ -89,14 +82,7 @@ impl EventHandler for App {
     fn update(&mut self, state: &mut event::State) {
         let (width, height) = state.dimensions();
 
-        self.renderer.update(Params {
-            width,
-            height,
-            fov: self.fov,
-            origin: self.origin,
-            disk_radius: self.disk_radius,
-            disk_height: self.disk_height,
-        });
+        self.renderer.update(width, height, self.config);
 
         let ctx = self.gui.begin();
         self.ui(ctx, state);

@@ -6,7 +6,7 @@ use rayon::{
     slice::ParallelSlice,
 };
 
-pub use marcher::Params;
+pub use marcher::Config;
 
 pub struct Renderer {
     device: Arc<wgpu::Device>,
@@ -49,8 +49,8 @@ impl Renderer {
     }
 
     #[profiling::function]
-    pub fn update(&mut self, params: Params) {
-        self.dirty = self.marcher.update(params);
+    pub fn update(&mut self, width: u32, height: u32, cfg: Config) {
+        self.dirty = self.marcher.update(width, height, cfg);
     }
 
     #[profiling::function]

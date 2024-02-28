@@ -13,16 +13,14 @@ use wcpu::{
     Texture2D,
 };
 
-pub struct Params {
-    pub width: u32,
-    pub height: u32,
+pub struct Config {
     pub fov: f32,
     pub samples: u32,
 }
 
 pub struct Renderer {
     buffer: FrameBuffer,
-    config: Params,
+    config: Config,
 
     sampler: Sampler,
     stars: Texture2D,
@@ -78,7 +76,7 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D) -> Vec3 {
 
 impl Renderer {
     #[profiling::function]
-    pub fn new(config: crate::Params) -> Self {
+    pub fn new(width: u32, height: u32, config: crate::Config) -> Self {
         let sampler = Sampler {
             filter_mode: Filter::Nearest,
         };
@@ -86,7 +84,7 @@ impl Renderer {
             Texture2D::from_bytes(include_bytes!("../../../textures/starmap_2020_4k.exr")).unwrap();
 
         Self {
-            buffer: FrameBuffer::new(config.width, config.height),
+            buffer: FrameBuffer::new(width, height),
             config,
 
             sampler,
@@ -97,7 +95,7 @@ impl Renderer {
     #[profiling::function]
     pub fn compute(&mut self) {
         let origin = Vec3::new(0.0, 0.2, 3.3);
-        let res = Vec2::new(self.config.width as f32, self.config.height as f32);
+        let res = Vec2::new(self.buffer.width() as f32, self.buffer.height() as f32);
 
         self.buffer.for_each(|coord| {
             let uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);

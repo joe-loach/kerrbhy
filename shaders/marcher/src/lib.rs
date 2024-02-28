@@ -3,6 +3,7 @@ mod shader;
 
 use std::sync::Arc;
 
+use glam::{vec3, Vec3};
 use graphics::wgpu::{
     self,
     util::DeviceExt,
@@ -15,13 +16,23 @@ use graphics::wgpu::{
 };
 use shader::bind_groups::*;
 
-pub struct Params {
-    pub width: u32,
-    pub height: u32,
-    pub origin: glam::Vec3,
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+    pub origin: Vec3,
     pub fov: f32,
     pub disk_radius: f32,
     pub disk_height: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            origin: vec3(0.0, 0.0, 3.3),
+            fov: 90.0,
+            disk_radius: 8.0,
+            disk_height: 3.0,
+        }
+    }
 }
 
 pub struct Marcher {
@@ -108,16 +119,13 @@ impl Marcher {
     }
 
     #[profiling::function]
-    pub fn update(&mut self, params: Params) -> bool {
-        let Params {
-            width,
-            height,
-            origin: _,
+    pub fn update(&mut self, width: u32, height: u32, cfg: Config) -> bool {
+        let Config {
             fov,
             disk_radius,
             disk_height,
             ..
-        } = params;
+        } = cfg;
 
         let dimensions_changed = width != self.texture.width() || height != self.texture.height();
         let disk_changed = self.disk_radius != disk_radius || self.disk_height != disk_height;
@@ -157,10 +165,10 @@ impl Marcher {
         );
 
         let push = shader::PushConstants {
-            origin: glam::Vec3::new(0.0, 0.5, 3.3),
+            origin: Vec3::new(0.0, 0.5, 3.3),
             fov: self.fov,
             sample: self.sample_no,
-            disk_color: glam::Vec3::new(0.3, 0.2, 0.1),
+            disk_color: Vec3::new(0.3, 0.2, 0.1),
             disk_radius: self.disk_radius,
             disk_height: self.disk_height,
             pad: glam::UVec2::ZERO,

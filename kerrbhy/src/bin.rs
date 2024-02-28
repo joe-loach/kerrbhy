@@ -91,8 +91,6 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
     };
 
     let config = kerrbhy::Config {
-        width,
-        height,
         fov: fov.to_radians(),
         samples,
     };
@@ -101,12 +99,12 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         profiling::scope!("hardware::new");
 
         let mut h = Hardware::new(&ctx);
-        h.update(config.into());
+        h.update(width, height, config.into());
         Simulator::Hardware(h)
     } else {
         profiling::scope!("software::new");
 
-        Simulator::Software(Software::new(config.into()))
+        Simulator::Software(Software::new(width, height, config.into()))
     };
 
     match &mut renderer {
