@@ -11,7 +11,7 @@ use winit::{
     window::WindowBuilder,
 };
 
-struct State {
+struct App {
     renderer: Renderer,
     fullscreen: Fullscreen,
     gui: GuiState,
@@ -20,7 +20,7 @@ struct State {
     fov: f32,
 }
 
-impl State {
+impl App {
     fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
         let renderer = Renderer::new(ctx);
         let fullscreen = Fullscreen::new(ctx);
@@ -62,7 +62,7 @@ impl State {
     }
 }
 
-impl EventHandler for State {
+impl EventHandler for App {
     fn update(&mut self, state: &event::State) {
         let (width, height) = state.dimensions();
 
