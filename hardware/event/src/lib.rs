@@ -4,14 +4,13 @@ mod timer;
 use std::sync::Arc;
 
 use error::RunError;
-use graphics::{
-    wgpu,
-    wgpu::{
-        CommandEncoderDescriptor,
-        Device,
-        Queue,
-        SurfaceConfiguration,
-    },
+use graphics::wgpu::{
+    self,
+    CommandEncoderDescriptor,
+    Device,
+    PresentMode,
+    Queue,
+    SurfaceConfiguration,
 };
 use timer::Timer;
 pub use winit::event_loop::EventLoopBuilder;
@@ -34,10 +33,24 @@ pub struct State<'a> {
 
     timer: &'a Timer,
 
-    surface: &'a SurfaceConfiguration,
+    surface: &'a mut SurfaceConfiguration,
+
+    dirty: bool,
 }
 
 impl<'a> State<'a> {
+    pub fn is_vsync(&self) -> bool {
+        matches!(
+            self.surface.present_mode,
+            PresentMode::Fifo | PresentMode::FifoRelaxed | PresentMode::AutoVsync
+        )
+    }
+
+    pub fn set_vsync(&mut self, vsync: bool) {
+        self.dirty = vsync != self.is_vsync();
+        self.surface.present_mode = present_mode(vsync);
+    }
+
     pub fn dimensions(&self) -> (u32, u32) {
         // both dimensions are guaranteed to be greater than 0
         (self.surface.width, self.surface.height)
@@ -70,7 +83,7 @@ pub enum Event<'a, T = ()> {
 }
 
 pub trait EventHandler<T = ()>: Sized {
-    fn update(&mut self, state: &State);
+    fn update(&mut self, state: &mut State);
     fn draw(
         &mut self,
         state: &mut State,
@@ -120,7 +133,7 @@ where
         format: ctx.view_format().expect("created with a window"),
         width: size.width.max(1),
         height: size.height.max(1),
-        present_mode: wgpu::PresentMode::Fifo,
+        present_mode: present_mode(ctx.is_vsync()),
         alpha_mode: ctx
             .capabilities()
             .expect("created with a window")
@@ -133,6 +146,8 @@ where
     window.set_visible(true);
 
     let mut timer = Timer::new();
+
+    let mut dirty = false;
 
     let mut running = true;
     timer.start();
@@ -170,6 +185,10 @@ where
                         profiling::scope!("event::redraw");
 
                         timer.tick();
+
+                        if dirty {
+                            reconfigure_surface(&window, surface, &mut config, &device);
+                        }
 
                         // try to get the next texture
                         let frame = match surface.get_current_texture() {
@@ -209,12 +228,13 @@ where
                             queue: &queue,
                             window: &window,
                             timer: &timer,
-                            surface: &config,
+                            surface: &mut config,
+                            dirty: false,
                         };
 
                         {
                             profiling::scope!("app::update");
-                            app.update(&state);
+                            app.update(&mut state);
                         }
 
                         let target = frame.texture.create_view(&Default::default());
@@ -233,6 +253,8 @@ where
                             queue.submit(Some(encoder.finish()));
                             frame.present();
                         }
+
+                        dirty = state.dirty;
 
                         profiling::finish_frame!();
                     }
@@ -265,4 +287,12 @@ fn reconfigure_surface(
     config.width = size.width.max(1);
     config.height = size.height.max(1);
     surface.configure(device, config);
+}
+
+fn present_mode(vsync: bool) -> wgpu::PresentMode {
+    if vsync {
+        wgpu::PresentMode::AutoVsync
+    } else {
+        wgpu::PresentMode::AutoNoVsync
+    }
 }

@@ -25,6 +25,7 @@ struct WindowData {
     window: Arc<Window>,
     surface: Surface<'static>,
     capabilities: SurfaceCapabilities,
+    vsync: bool,
 }
 
 pub struct ContextBuilder {
@@ -32,6 +33,7 @@ pub struct ContextBuilder {
     limits: wgpu::Limits,
 
     window: Option<WindowBuilder>,
+    vsync: bool,
 }
 
 impl ContextBuilder {
@@ -43,6 +45,7 @@ impl ContextBuilder {
             features: Box::new(features),
             limits,
             window: None,
+            vsync: true,
         }
     }
 
@@ -65,11 +68,12 @@ impl ContextBuilder {
             features,
             limits,
             window,
+            vsync,
         } = self;
 
         let window_info = event_loop.zip(window);
 
-        Context::create(window_info, features, limits)
+        Context::create(window_info, vsync, features, limits)
     }
 }
 
@@ -84,6 +88,7 @@ pub struct Context {
 impl Context {
     fn create<T>(
         window_info: Option<(&EventLoop<T>, WindowBuilder)>,
+        vsync: bool,
         features: impl FnOnce(&wgpu::Adapter) -> wgpu::Features,
         limits: wgpu::Limits,
     ) -> Result<Self, ContextBuildError> {
@@ -138,6 +143,7 @@ impl Context {
             let capabilities = surface.get_capabilities(&adapter);
 
             Some(WindowData {
+                vsync,
                 window,
                 surface,
                 capabilities,
@@ -163,6 +169,10 @@ impl Context {
 
     pub fn window(&self) -> Option<Arc<Window>> {
         self.window_data.as_ref().map(|d| d.window.clone())
+    }
+
+    pub fn is_vsync(&self) -> bool {
+        self.window_data.as_ref().map(|d| d.vsync).unwrap_or(false)
     }
 
     pub fn surface(&self) -> Option<&Surface> {
