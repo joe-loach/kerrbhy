@@ -112,7 +112,7 @@ fn main() -> anyhow::Result<()> {
     )
     .with_window(window);
 
-    let app = |event_loop: &_, ctx: &_| State::new(event_loop, ctx);
+    let app = |event_loop: &_, ctx: &_| App::new(event_loop, ctx);
 
     event::run(event_loop, cb, app)?;
 
