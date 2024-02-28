@@ -79,7 +79,7 @@ impl EventHandler for State {
 
     fn draw(
         &mut self,
-        ctx: &mut event::State,
+        state: &mut event::State,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
@@ -90,7 +90,7 @@ impl EventHandler for State {
 
         self.fullscreen.draw(encoder, &self.renderer.view(), target);
 
-        self.gui.draw(ctx, encoder, target);
+        self.gui.draw(state, encoder, target);
     }
 
     fn event(&mut self, event: event::Event<()>) -> bool {

@@ -96,12 +96,12 @@ impl GuiState {
 
     pub fn draw(
         &mut self,
-        ctx: &event::State,
+        state: &event::State,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
-        let device = &ctx.device();
-        let queue = &ctx.queue();
+        let device = &state.device();
+        let queue = &state.queue();
 
         let PartialOutput {
             textures_delta,
@@ -117,7 +117,7 @@ impl GuiState {
 
         let paint_jobs = self.context().tessellate(shapes, self.pixels_per_point);
 
-        let surface = ctx.surface();
+        let surface = state.surface();
         let screen_descriptor = &renderer::ScreenDescriptor {
             size_in_pixels: [surface.width, surface.height],
             pixels_per_point: self.pixels_per_point,
