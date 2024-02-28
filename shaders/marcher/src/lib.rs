@@ -3,7 +3,10 @@ mod shader;
 
 use std::sync::Arc;
 
-use glam::{vec3, Vec3};
+use glam::{
+    vec3,
+    Vec3,
+};
 use graphics::wgpu::{
     self,
     util::DeviceExt,
@@ -16,10 +19,10 @@ use graphics::wgpu::{
 };
 use shader::bind_groups::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Config {
-    pub origin: Vec3,
     pub fov: f32,
+    pub pos: Vec3,
     pub disk_radius: f32,
     pub disk_height: f32,
 }
@@ -27,8 +30,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            origin: vec3(0.0, 0.0, 3.3),
-            fov: 90.0,
+            pos: vec3(0.0, 0.0, 3.3),
+            fov: 90.0_f32.to_radians(),
             disk_radius: 8.0,
             disk_height: 3.0,
         }
@@ -43,9 +46,7 @@ pub struct Marcher {
     stars: Texture,
     star_sampler: Sampler,
 
-    fov: f32,
-    disk_radius: f32,
-    disk_height: f32,
+    config: Config,
     sample_no: u32,
 
     texture: Texture,
@@ -91,16 +92,12 @@ impl Marcher {
 
         let texture = device.create_texture(&buffer_texture_descriptor());
 
-        let fov = (90.0_f32).to_radians();
-
         Self {
             device,
             pipeline,
             texture,
             stars,
-            fov,
-            disk_radius: 8.0,
-            disk_height: 3.0,
+            config: Config::default(),
             sample_no: 0,
             star_sampler,
         }
@@ -120,22 +117,12 @@ impl Marcher {
 
     #[profiling::function]
     pub fn update(&mut self, width: u32, height: u32, cfg: Config) -> bool {
-        let Config {
-            fov,
-            disk_radius,
-            disk_height,
-            ..
-        } = cfg;
-
         let dimensions_changed = width != self.texture.width() || height != self.texture.height();
-        let disk_changed = self.disk_radius != disk_radius || self.disk_height != disk_height;
-        let fov_changed = self.fov != fov;
+        let config_changed = self.config != cfg;
 
-        self.disk_radius = disk_radius;
-        self.disk_height = disk_height;
-        self.fov = fov;
+        self.config = cfg;
 
-        let dirty = dimensions_changed || fov_changed || disk_changed;
+        let dirty = dimensions_changed || config_changed;
 
         if dirty {
             self.recreate_buffer(width, height);
@@ -165,12 +152,12 @@ impl Marcher {
         );
 
         let push = shader::PushConstants {
-            origin: Vec3::new(0.0, 0.5, 3.3),
-            fov: self.fov,
+            origin: self.config.pos,
+            fov: self.config.fov,
             sample: self.sample_no,
             disk_color: Vec3::new(0.3, 0.2, 0.1),
-            disk_radius: self.disk_radius,
-            disk_height: self.disk_height,
+            disk_radius: self.config.disk_radius,
+            disk_height: self.config.disk_height,
             pad: glam::UVec2::ZERO,
         };
 
