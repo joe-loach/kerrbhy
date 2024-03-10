@@ -186,6 +186,7 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     let coord = vec2<f32>(id.xy);
     // calculate uv coordinates
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
+    // switch y because wgpu uses strange texture coords
     uv.y = -uv.y;
 
     // TODO: add AA filtering to the uv
