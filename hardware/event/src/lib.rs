@@ -165,11 +165,7 @@ where
             }
 
             WEvent::WindowEvent { event, window_id } if window_id == window.id() => {
-                let handled = app.event(Event::Window(&event));
-
-                if !handled {
-                    // TODO: keep input state etc
-                }
+                let _ = app.event(Event::Window(&event));
 
                 match event {
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {

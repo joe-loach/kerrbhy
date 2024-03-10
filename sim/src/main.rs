@@ -1,13 +1,16 @@
 mod gui;
+mod input;
 
 use event::EventHandler;
 use fullscreen::Fullscreen;
+use glam::vec3;
 use graphics::wgpu;
 use gui::GuiState;
 use hardware_renderer::*;
 use winit::{
     dpi::PhysicalSize,
     event_loop::EventLoop,
+    keyboard::KeyCode,
     window::WindowBuilder,
 };
 
@@ -15,6 +18,9 @@ struct App {
     renderer: Renderer,
     fullscreen: Fullscreen,
     gui: GuiState,
+
+    mouse: input::Mouse,
+    keyboard: input::Keyboard,
 
     accumulate: bool,
     config: Config,
@@ -35,6 +41,9 @@ impl App {
             renderer,
             fullscreen,
             gui,
+
+            mouse: input::Mouse::new(),
+            keyboard: input::Keyboard::new(),
 
             accumulate: true,
             config: Config::default(),
@@ -94,6 +103,27 @@ impl EventHandler for App {
     fn update(&mut self, state: &mut event::State) {
         let (width, height) = state.dimensions();
 
+        let dt = state.timer().dt();
+
+        if self.keyboard.is_down(KeyCode::KeyW) {
+            self.config.pos += vec3(0.0, 0.0, -1.0) * dt;
+        }
+        if self.keyboard.is_down(KeyCode::KeyS) {
+            self.config.pos += vec3(0.0, 0.0, 1.0) * dt;
+        }
+        if self.keyboard.is_down(KeyCode::KeyA) {
+            self.config.pos += vec3(-1.0, 0.0, 0.0) * dt;
+        }
+        if self.keyboard.is_down(KeyCode::KeyD) {
+            self.config.pos += vec3(1.0, 0.0, 0.0) * dt;
+        }
+        if self.keyboard.is_down(KeyCode::Space) {
+            self.config.pos += vec3(0.0, 1.0, 0.0) * dt;
+        }
+        if self.keyboard.is_down(KeyCode::ControlLeft) {
+            self.config.pos += vec3(0.0, -1.0, 0.0) * dt;
+        }
+
         self.renderer.update(width, height, self.config);
 
         let ctx = self.gui.begin();
@@ -118,7 +148,14 @@ impl EventHandler for App {
     }
 
     fn event(&mut self, event: event::Event<()>) -> bool {
-        self.gui.handle_event(&event)
+        let consumed = self.gui.handle_event(&event);
+
+        if !consumed {
+            self.mouse.update_state(&event);
+            self.keyboard.update_state(&event);
+        }
+
+        consumed
     }
 }
 
