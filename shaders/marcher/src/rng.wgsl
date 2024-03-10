@@ -33,10 +33,6 @@ fn rand2() -> vec2<f32> {
     return vec2<f32>(state.xy) / f32(0xffffffffu);
 }
 
-fn rand22(f: vec2<f32>) {
-
-}
-
 fn rand3() -> vec3<f32> {
     state = pcg4d(state);
     return vec3<f32>(state.xyz) / f32(0xffffffffu);
