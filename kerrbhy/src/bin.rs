@@ -182,12 +182,15 @@ fn main() -> anyhow::Result<()> {
     std::thread::scope(|s| -> anyhow::Result<()> {
         let state_clone = state.clone();
 
-        std::thread::Builder::new()
+        let compute = std::thread::Builder::new()
             .name(COMPUTE_THREAD.to_owned())
             .spawn_scoped(s, || compute_and_save(&args, state_clone))?;
 
         if let Some(profiler) = profiler {
             show_flamegraph(state.clone(), profiler);
+        } else {
+            state.started.store(true, Ordering::Relaxed);
+            let _ = compute.join();
         }
 
         Ok(())

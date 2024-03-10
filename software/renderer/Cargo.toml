@@ -9,5 +9,6 @@ wcpu = { path = "../wcpu" }
 
 glam = { workspace = true }
 image = { workspace = true }
+fastrand = { workspace = true }
 
 profiling = { workspace = true }

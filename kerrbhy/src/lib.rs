@@ -52,8 +52,20 @@ impl From<Config> for hardware_renderer::Config {
 
 impl From<Config> for software_renderer::Config {
     fn from(value: Config) -> Self {
-        let Config { fov, samples, .. } = value;
+        let Config {
+            fov,
+            samples,
+            pos,
+            disk_radius,
+            disk_height,
+        } = value;
 
-        software_renderer::Config { fov, samples }
+        software_renderer::Config {
+            fov,
+            samples,
+            pos,
+            disk_radius,
+            disk_height,
+        }
     }
 }

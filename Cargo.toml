@@ -25,6 +25,9 @@ anyhow = "1.0"
 profiling = { version = "1.0", features = ["profile-with-puffin"] }
 puffin = "0.19"
 
+# randomisation
+fastrand = "2.0"
+
 # other
 bytemuck = { version = "1.14", features = ["derive"] }
 glam = { version = "0.25", features = ["bytemuck"] }
