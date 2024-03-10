@@ -1,9 +1,12 @@
-use std::sync::{
-    atomic::{
-        AtomicBool,
-        Ordering,
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
+        Arc,
     },
-    Arc,
 };
 
 use clap::Parser;
@@ -11,8 +14,30 @@ use eframe::egui;
 use graphics::wgpu;
 use kerrbhy::*;
 
+#[derive(Debug, Clone, Copy)]
+enum Renderer {
+    Hardware,
+    Software,
+}
+
+impl FromStr for Renderer {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let kind = match s.to_lowercase().as_str() {
+            "hardware" => Self::Hardware,
+            "software" => Self::Software,
+            _ => return Err("invalid render type"),
+        };
+
+        Ok(kind)
+    }
+}
+
 #[derive(Parser, Debug, Clone)]
 struct Args {
+    renderer: Renderer,
+
     width: u32,
     height: u32,
     fov: f32,
@@ -21,8 +46,7 @@ struct Args {
     #[clap(value_parser = clap::value_parser!(u32).range(1..))]
     samples: u32,
 
-    #[clap(long)]
-    hardware: bool,
+    
 
     #[clap(long)]
     flamegraph: bool,
@@ -65,7 +89,7 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         height,
         fov,
         samples,
-        hardware,
+        renderer,
         ..
     } = *args;
 
@@ -96,16 +120,19 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let mut renderer = if hardware {
-        profiling::scope!("hardware::new");
+    let mut renderer = match renderer {
+        Renderer::Hardware => {
+            profiling::scope!("hardware::new");
 
-        let mut h = Hardware::new(&ctx);
-        h.update(width, height, config.into());
-        Simulator::Hardware(h)
-    } else {
-        profiling::scope!("software::new");
+            let mut h = Hardware::new(&ctx);
+            h.update(width, height, config.into());
+            Simulator::Hardware(h)
+        }
+        Renderer::Software => {
+            profiling::scope!("software::new");
 
-        Simulator::Software(Software::new(width, height, config.into()))
+            Simulator::Software(Software::new(width, height, config.into()))
+        }
     };
 
     match &mut renderer {
