@@ -135,10 +135,10 @@ fn xyz2rgb(color_xyz: Vec3) -> Vec3 {
 #[allow(clippy::excessive_precision)]
 fn blackbody_xyz(t: f32) -> Vec3 {
     // https://en.wikipedia.org/wiki/Planckian_locus
-    let u = (0.860117757 + 1.54118254E-4 * t + 1.28641212E-7 * t * t)
-        / (1.0 + 8.42420235E-4 * t + 7.08145163E-7 * t * t);
-    let v = (0.317398726 + 4.22806245E-5 * t + 4.20481691E-8 * t * t)
-        / (1.0 - 2.89741816E-5 * t + 1.61456053E-7 * t * t);
+    #[rustfmt::skip]
+    let u = (0.860117757 + 1.54118254E-4 * t + 1.28641212E-7 * t * t) / (1.0 + 8.42420235E-4 * t + 7.08145163E-7 * t * t);
+    #[rustfmt::skip]
+    let v = (0.317398726 + 4.22806245E-5 * t + 4.20481691E-8 * t * t) / (1.0 - 2.89741816E-5 * t + 1.61456053E-7 * t * t);
 
     // https://en.wikipedia.org/wiki/CIE_1960_color_space
     // https://en.wikipedia.org/wiki/XYZ_color_space
@@ -157,14 +157,12 @@ struct DiskInfo {
     distance: f32,
 }
 
-fn disk(p: Vec3, radius: f32, height: f32) -> DiskInfo {
-    let mut ret = DiskInfo {
-        emission: Vec3::ZERO,
-        distance: 0.0,
-    };
-
-    if p.xz().length_squared() > radius || p.y * p.y > height {
-        return ret;
+fn disk(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
+    if p.xz().length_squared() > radius || p.y * p.y > thickness {
+        return DiskInfo {
+            emission: Vec3::ZERO,
+            distance: 0.0,
+        };
     }
 
     let np = 20.0
@@ -185,10 +183,10 @@ fn disk(p: Vec3, radius: f32, height: f32) -> DiskInfo {
     let h_p = 0.5 * p;
     e *= 128.0 * (n0 - e_falloff).max(0.0) / (h_p.length_squared() + 0.05);
 
-    ret.emission = e;
-    ret.distance = 128.0 * (n0 - d_falloff).max(0.0);
-
-    ret
+    DiskInfo {
+        emission: e,
+        distance: 128.0 * (n0 - d_falloff).max(0.0),
+    }
 }
 
 fn sky(sampler: Sampler, stars: &Texture2D, rd: Vec3) -> Vec3 {
