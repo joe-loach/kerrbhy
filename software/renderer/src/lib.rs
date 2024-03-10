@@ -127,7 +127,9 @@ const XYZ2_SRGB: Mat3 = Mat3::from_cols(
 
 // Convert XYZ to sRGB
 fn xyz2rgb(color_xyz: Vec3) -> Vec3 {
-    XYZ2_SRGB.mul_vec3(color_xyz)
+    // Note: glsl uses column-major, not row-major matricies (as they are in glam)
+    // transpose before multiplying
+    XYZ2_SRGB.transpose() * color_xyz
 }
 
 #[allow(clippy::excessive_precision)]
