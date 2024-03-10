@@ -44,26 +44,12 @@ impl App {
     #[profiling::function]
     fn ui(&mut self, ctx: egui::Context, state: &mut event::State) {
         let mut vsync = state.is_vsync();
+
         egui::Window::new("Info").show(&ctx, |ui| {
             ui.checkbox(&mut vsync, "vsync");
             ui.checkbox(&mut self.accumulate, "accumulate");
 
-            ui.horizontal(|ui| {
-                ui.label("Fov: ");
-                ui.drag_angle(&mut self.config.fov);
-            });
-            ui.add(
-                egui::DragValue::new(&mut self.config.disk_radius)
-                    .speed(0.1)
-                    .prefix("Disk radius: ")
-                    .clamp_range(0.0..=10.0),
-            );
-            ui.add(
-                egui::DragValue::new(&mut self.config.disk_height)
-                    .speed(0.1)
-                    .prefix("Disk height: ")
-                    .clamp_range(0.0..=10.0),
-            );
+            config_ui(ui, &mut self.config);
 
             let on = !ui
                 .collapsing("Profiler", |ui| {
@@ -74,8 +60,34 @@ impl App {
 
             puffin::set_scopes_on(on);
         });
+
         state.set_vsync(vsync);
     }
+}
+
+fn config_ui(ui: &mut egui::Ui, cfg: &mut Config) {
+    ui.separator();
+
+    ui.horizontal(|ui| {
+        ui.label("Fov: ");
+        ui.drag_angle(&mut cfg.fov);
+    });
+    ui.vertical(|ui| {
+        ui.add(
+            egui::DragValue::new(&mut cfg.disk_radius)
+                .speed(0.1)
+                .prefix("Disk radius: ")
+                .clamp_range(0.0..=10.0),
+        );
+        ui.add(
+            egui::DragValue::new(&mut cfg.disk_height)
+                .speed(0.1)
+                .prefix("Disk height: ")
+                .clamp_range(0.0..=10.0),
+        );
+    });
+
+    ui.separator();
 }
 
 impl EventHandler for App {
