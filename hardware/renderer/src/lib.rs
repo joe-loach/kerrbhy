@@ -12,7 +12,6 @@ pub struct Renderer {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     marcher: marcher::Marcher,
-    encoder: Option<wgpu::CommandEncoder>,
 
     dirty: bool,
 }
@@ -24,17 +23,10 @@ impl Renderer {
 
         let marcher = marcher::Marcher::new(device.clone(), &queue);
 
-        let encoder = if ctx.is_headless() {
-            Some(device.create_command_encoder(&Default::default()))
-        } else {
-            None
-        };
-
         Self {
             device,
             queue,
             marcher,
-            encoder,
 
             dirty: true,
         }
@@ -54,16 +46,12 @@ impl Renderer {
     }
 
     #[profiling::function]
-    pub fn compute(&mut self, encoder: Option<&mut wgpu::CommandEncoder>) {
-        let encoder = self.encoder.as_mut().or(encoder).expect("no encoder");
-
+    pub fn compute(&mut self, encoder: &mut wgpu::CommandEncoder) {
         self.marcher.record(encoder);
     }
 
     #[profiling::function]
-    pub fn into_frame(self, encoder: Option<wgpu::CommandEncoder>) -> Vec<u8> {
-        let mut encoder = self.encoder.or(encoder).expect("no encoder");
-
+    pub fn into_frame(self, mut encoder: wgpu::CommandEncoder) -> Vec<u8> {
         let (frame, row, aligned_row) = copy_texture_to_buffer(
             &self.device,
             &mut encoder,

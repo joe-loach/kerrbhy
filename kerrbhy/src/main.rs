@@ -24,7 +24,7 @@ enum RendererKind {
 }
 
 enum Renderer {
-    Hardware(hardware_renderer::Renderer),
+    Hardware(hardware_renderer::Renderer, wgpu::CommandEncoder),
     Software(software_renderer::Renderer),
 }
 
@@ -132,9 +132,11 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         RendererKind::Hardware => {
             profiling::scope!("hardware::new");
 
+            let enc = ctx.device().create_command_encoder(&Default::default());
+
             let mut h = hardware_renderer::Renderer::new(&ctx);
             h.update(width, height, config);
-            Renderer::Hardware(h)
+            Renderer::Hardware(h, enc)
         }
         RendererKind::Software => {
             profiling::scope!("software::new");
@@ -146,12 +148,12 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
 
     match &mut renderer {
         Renderer::Software(s) => s.compute(),
-        Renderer::Hardware(h) => h.compute(None),
+        Renderer::Hardware(h, enc) => h.compute(enc),
     }
 
     let bytes = match renderer {
         Renderer::Software(s) => s.into_frame(),
-        Renderer::Hardware(h) => h.into_frame(None),
+        Renderer::Hardware(h, enc) => h.into_frame(enc),
     };
 
     {

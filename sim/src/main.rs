@@ -140,7 +140,7 @@ impl EventHandler for App {
     ) {
         // only compute more work when it's needed
         if self.accumulate || self.renderer.must_render() {
-            self.renderer.compute(Some(encoder));
+            self.renderer.compute(encoder);
         }
 
         self.fullscreen.draw(encoder, &self.renderer.view(), target);
