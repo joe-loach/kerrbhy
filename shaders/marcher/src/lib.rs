@@ -4,7 +4,6 @@ mod shader;
 use std::sync::Arc;
 
 use common::Config;
-use glam::Vec3;
 use graphics::wgpu::{
     self,
     util::DeviceExt,
@@ -134,7 +133,7 @@ impl Marcher {
             origin: self.config.pos,
             fov: self.config.fov,
             sample: self.sample_no,
-            disk_color: Vec3::new(0.3, 0.2, 0.1),
+            disk_color: self.config.disk.color,
             disk_radius: self.config.disk.radius,
             disk_thickness: self.config.disk.thickness,
             pad: glam::UVec2::ZERO,

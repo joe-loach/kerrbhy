@@ -1,13 +1,19 @@
-use std::sync::{
-    atomic::{
-        AtomicBool,
-        Ordering,
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
+        Arc,
     },
-    Arc,
 };
 
 use clap::Parser;
-use common::Config;
+use common::{
+    Config,
+    Features,
+};
 use eframe::egui;
 use graphics::wgpu;
 
@@ -30,14 +36,17 @@ struct Args {
     height: u32,
 
     #[clap(long)]
-    fov: f32,
+    fov: Option<f32>,
 
     // have to have at least one sample
     #[clap(long, value_parser = clap::value_parser!(u32).range(1..))]
-    samples: u32,
+    samples: Option<u32>,
 
     #[clap(long)]
     flamegraph: bool,
+
+    #[clap(short, long, value_delimiter = ',', num_args = 1..)]
+    features: Option<Vec<String>>,
 }
 
 #[derive(Default)]
@@ -102,11 +111,22 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         cb.build::<()>(None)?
     };
 
-    let config = Config {
-        fov: fov.to_radians(),
-        samples,
-        ..Default::default()
-    };
+    let mut config = Config::default();
+
+    if let Some(fov) = fov {
+        config.fov = fov;
+    }
+
+    if let Some(samples) = samples {
+        config.samples = samples;
+    }
+
+    if let Some(ref features) = args.features {
+        config.features = features
+            .iter()
+            .filter_map(|f| Features::from_str(f).ok())
+            .fold(Features::empty(), |acc, f| acc.union(f));
+    }
 
     let mut renderer = match renderer {
         RendererKind::Hardware => {

@@ -209,7 +209,7 @@ fn gravitational_field(p: Vec3) -> Vec3 {
 }
 
 #[profiling::function]
-fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D) -> Vec3 {
+fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
     let mut attenuation = Vec3::ONE;
     let mut r = Vec3::ZERO;
 
@@ -232,7 +232,7 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D) -> Vec3 {
             break;
         }
 
-        let sample = disk(p, 8.0, 3.0);
+        let sample = disk(p, config.disk.radius, config.disk.thickness);
         r += attenuation * sample.emission * DELTA;
 
         if sample.distance > 0.0 {
@@ -243,7 +243,7 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D) -> Vec3 {
                 // change the direction of v but keep its magnitude
                 v = v.length() * reflect(v.normalize(), udir3());
 
-                attenuation *= Vec3::new(0.6, 0.1, 0.1);
+                attenuation *= config.disk.color;
 
                 bounces += 1;
             }
@@ -295,7 +295,7 @@ impl Renderer {
             let mut acc = Vec3::ZERO;
 
             for _ in 0..self.config.samples {
-                let col = render(ro, rd, self.sampler, &self.stars);
+                let col = render(ro, rd, self.sampler, &self.stars, &self.config);
 
                 let col = if col.cmplt(Vec3::ZERO).any() || !col.is_finite() || col.is_nan() {
                     Vec3::ZERO
