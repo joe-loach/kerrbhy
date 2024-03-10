@@ -4,28 +4,18 @@ edition.workspace = true
 license.workspace = true
 version.workspace = true
 
-[lib]
-name = "kerrbhy"
-path = "src/lib.rs"
-
-[[bin]]
-name = "kerrbhy"
-path = "src/bin.rs"
-required-features = ["binary"]
-
-[features]
-binary = ["graphics", "puffin_egui", "eframe" ]
 
 [dependencies]
+common = { path = "../common" }
 hardware-renderer = { path = "../hardware/renderer" }
 software-renderer = { path = "../software/renderer" }
 
-graphics = { path = "../hardware/graphics", optional = true }
+graphics = { path = "../hardware/graphics" }
 
 profiling = { workspace = true }
 puffin = { workspace = true }
-puffin_egui = { version = "0.26.0", optional = true }
-eframe = { version = "0.26.2", default-features = false, features = ["glow"], optional = true }
+puffin_egui = { version = "0.26.0" }
+eframe = { version = "0.26.2", default-features = false, features = ["glow"] }
 
 image = { workspace = true }
 bytemuck = { workspace = true }

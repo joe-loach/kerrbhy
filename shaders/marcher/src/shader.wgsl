@@ -12,7 +12,7 @@ struct PushConstants {
     fov: f32,
     disk_color: vec3<f32>,
     disk_radius: f32,
-    disk_height: f32,
+    disk_thickness: f32,
     sample: u32,
     pad: vec2<u32>,
 }
@@ -71,7 +71,7 @@ fn disk(p: vec3<f32>) -> DiskInfo {
     ret.emission = vec3<f32>(0.0);
     ret.distance = 0.0;
 
-    if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_height {
+    if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_thickness {
         return ret;
     }
 

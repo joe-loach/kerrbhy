@@ -3,10 +3,8 @@ mod shader;
 
 use std::sync::Arc;
 
-use glam::{
-    vec3,
-    Vec3,
-};
+use common::Config;
+use glam::Vec3;
 use graphics::wgpu::{
     self,
     util::DeviceExt,
@@ -18,25 +16,6 @@ use graphics::wgpu::{
     TextureView,
 };
 use shader::bind_groups::*;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Config {
-    pub fov: f32,
-    pub pos: Vec3,
-    pub disk_radius: f32,
-    pub disk_height: f32,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            pos: vec3(0.0, 0.0, 3.3),
-            fov: 90.0_f32.to_radians(),
-            disk_radius: 8.0,
-            disk_height: 3.0,
-        }
-    }
-}
 
 pub struct Marcher {
     device: Arc<wgpu::Device>,
@@ -156,8 +135,8 @@ impl Marcher {
             fov: self.config.fov,
             sample: self.sample_no,
             disk_color: Vec3::new(0.3, 0.2, 0.1),
-            disk_radius: self.config.disk_radius,
-            disk_height: self.config.disk_height,
+            disk_radius: self.config.disk.radius,
+            disk_thickness: self.config.disk.thickness,
             pad: glam::UVec2::ZERO,
         };
 
@@ -169,7 +148,10 @@ impl Marcher {
         let [x, y, _z] = shader::compute::COMP_WORKGROUP_SIZE;
         let x = (width as f32 / x as f32).ceil() as u32;
         let y = (height as f32 / y as f32).ceil() as u32;
-        pass.dispatch_workgroups(x, y, 1);
+
+        for _ in 0..self.config.samples {
+            pass.dispatch_workgroups(x, y, 1);
+        }
 
         self.sample_no += 1;
     }

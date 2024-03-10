@@ -1,49 +1,39 @@
-use std::{
-    str::FromStr,
-    sync::{
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        Arc,
+use std::sync::{
+    atomic::{
+        AtomicBool,
+        Ordering,
     },
+    Arc,
 };
 
 use clap::Parser;
+use common::Config;
 use eframe::egui;
 use graphics::wgpu;
-use kerrbhy::*;
 
-#[derive(Debug, Clone, Copy)]
-enum Renderer {
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum RendererKind {
     Hardware,
     Software,
 }
 
-impl FromStr for Renderer {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let kind = match s.to_lowercase().as_str() {
-            "hardware" => Self::Hardware,
-            "software" => Self::Software,
-            _ => return Err("invalid render type"),
-        };
-
-        Ok(kind)
-    }
+enum Renderer {
+    Hardware(hardware_renderer::Renderer),
+    Software(software_renderer::Renderer),
 }
 
 #[derive(Parser, Debug, Clone)]
 struct Args {
-    renderer: Renderer,
+    renderer: RendererKind,
 
     width: u32,
     height: u32,
+
+    #[clap(long)]
     fov: f32,
 
     // have to have at least one sample
-    #[clap(value_parser = clap::value_parser!(u32).range(1..))]
+    #[clap(long, value_parser = clap::value_parser!(u32).range(1..))]
     samples: u32,
 
     #[clap(long)]
@@ -112,35 +102,36 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         cb.build::<()>(None)?
     };
 
-    let config = kerrbhy::Config {
+    let config = Config {
         fov: fov.to_radians(),
         samples,
         ..Default::default()
     };
 
     let mut renderer = match renderer {
-        Renderer::Hardware => {
+        RendererKind::Hardware => {
             profiling::scope!("hardware::new");
 
-            let mut h = Hardware::new(&ctx);
-            h.update(width, height, config.into());
-            Simulator::Hardware(h)
+            let mut h = hardware_renderer::Renderer::new(&ctx);
+            h.update(width, height, config);
+            Renderer::Hardware(h)
         }
-        Renderer::Software => {
+        RendererKind::Software => {
             profiling::scope!("software::new");
 
-            Simulator::Software(Software::new(width, height, config.into()))
+            let s = software_renderer::Renderer::new(width, height, config);
+            Renderer::Software(s)
         }
     };
 
     match &mut renderer {
-        Simulator::Software(s) => s.compute(),
-        Simulator::Hardware(h) => h.compute(None),
+        Renderer::Software(s) => s.compute(),
+        Renderer::Hardware(h) => h.compute(None),
     }
 
     let bytes = match renderer {
-        Simulator::Software(s) => s.into_frame(),
-        Simulator::Hardware(h) => h.into_frame(None),
+        Renderer::Software(s) => s.into_frame(),
+        Renderer::Hardware(h) => h.into_frame(None),
     };
 
     {

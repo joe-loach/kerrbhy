@@ -6,7 +6,7 @@ use rayon::{
     slice::ParallelSlice,
 };
 
-pub use marcher::Config;
+pub use common::Config;
 
 pub struct Renderer {
     device: Arc<wgpu::Device>,

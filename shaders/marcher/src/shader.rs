@@ -136,7 +136,7 @@ struct PushConstants {
     fov: f32,
     disk_color: vec3<f32>,
     disk_radius: f32,
-    disk_height: f32,
+    disk_thickness: f32,
     sample: u32,
     pad: vec2<u32>,
 }
@@ -195,7 +195,7 @@ fn disk(p: vec3<f32>) -> DiskInfo {
     ret.emission = vec3<f32>(0.0);
     ret.distance = 0.0;
 
-    if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_height {
+    if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_thickness {
         return ret;
     }
 
@@ -347,7 +347,7 @@ pub struct PushConstants {
     pub fov: f32,
     pub disk_color: glam::Vec3,
     pub disk_radius: f32,
-    pub disk_height: f32,
+    pub disk_thickness: f32,
     pub sample: u32,
     pub pad: glam::UVec2,
 }
@@ -372,8 +372,8 @@ const _: () = assert!(
     "offset of PushConstants.disk_radius does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, disk_height) == 32,
-    "offset of PushConstants.disk_height does not match WGSL"
+    memoffset::offset_of!(PushConstants, disk_thickness) == 32,
+    "offset of PushConstants.disk_thickness does not match WGSL"
 );
 const _: () = assert!(
     memoffset::offset_of!(PushConstants, sample) == 36,

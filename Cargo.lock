@@ -513,6 +513,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "glam",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1123,6 +1130,7 @@ dependencies = [
 name = "hardware-renderer"
 version = "0.1.0"
 dependencies = [
+ "common",
  "flume",
  "graphics",
  "marcher",
@@ -1279,6 +1287,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "clap",
+ "common",
  "eframe",
  "glam",
  "graphics",
@@ -1400,6 +1409,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "common",
  "event",
  "glam",
  "graphics",
@@ -2113,6 +2123,7 @@ dependencies = [
 name = "software-renderer"
 version = "0.1.0"
 dependencies = [
+ "common",
  "fastrand",
  "glam",
  "image",

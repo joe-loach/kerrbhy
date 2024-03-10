@@ -1,5 +1,5 @@
 [workspace]
-members = ["shaders/*", "hardware/*", "software/*", "kerrbhy", "sim"]
+members = ["shaders/*", "hardware/*", "software/*", "kerrbhy", "sim", "common"]
 resolver = "2"
 
 [workspace.package]

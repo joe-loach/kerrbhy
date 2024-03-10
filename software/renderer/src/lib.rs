@@ -1,5 +1,6 @@
 use std::f32::consts::FRAC_1_PI;
 
+use common::Config;
 use glam::{
     Mat3,
     Vec2,
@@ -15,14 +16,6 @@ use wcpu::{
     Sampler,
     Texture2D,
 };
-
-pub struct Config {
-    pub samples: u32,
-    pub fov: f32,
-    pub pos: Vec3,
-    pub disk_radius: f32,
-    pub disk_height: f32,
-}
 
 pub struct Renderer {
     buffer: FrameBuffer,

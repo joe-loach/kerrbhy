@@ -82,16 +82,17 @@ fn config_ui(ui: &mut egui::Ui, cfg: &mut Config) {
         ui.drag_angle(&mut cfg.fov);
     });
     ui.vertical(|ui| {
+        ui.label("Disk");
         ui.add(
-            egui::DragValue::new(&mut cfg.disk_radius)
+            egui::DragValue::new(&mut cfg.disk.radius)
                 .speed(0.1)
-                .prefix("Disk radius: ")
+                .prefix("Radius: ")
                 .clamp_range(0.0..=10.0),
         );
         ui.add(
-            egui::DragValue::new(&mut cfg.disk_height)
+            egui::DragValue::new(&mut cfg.disk.thickness)
                 .speed(0.1)
-                .prefix("Disk height: ")
+                .prefix("Thickness: ")
                 .clamp_range(0.0..=10.0),
         );
     });
@@ -124,7 +125,7 @@ impl EventHandler for App {
             self.config.pos += vec3(0.0, -1.0, 0.0) * dt;
         }
 
-        self.renderer.update(width, height, self.config);
+        self.renderer.update(width, height, self.config.clone());
 
         let ctx = self.gui.begin();
         self.ui(ctx, state);
