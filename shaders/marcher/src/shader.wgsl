@@ -75,14 +75,16 @@ fn disk(p: vec3<f32>) -> DiskInfo {
         return ret;
     }
 
-    let n0 = fbm(20.0 * vec3<f32>(rotate(p.xz, (8.0 * p.y) + (4.0 * length(p.xz))), p.y).xzy, 8u);
+    let np = 20.0 * vec3<f32>(rotate(p.xz, (8.0 * p.y) + (4.0 * length(p.xz))), p.y).xzy;
+    let n0 = fbm(np, 8u);
 
     let d_falloff = length(vec3(0.12, 7.50, 0.12) * p);
     let e_falloff = length(vec3(0.20, 8.00, 0.20) * p);
 
-    // TODO: add random varitions to temperature
+    // add random variations to temperature
     let t = rand();
     var e = xyz2rgb(blackbodyXYZ((4000.0 * t * t) + 2000.0));
+    // "normalize" e, but don't go to infinity
     e = clamp(
         e / max(max(max(e.r, e.g), e.b), 0.01),
         vec3<f32>(0.0),
@@ -144,12 +146,11 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         r += attenuation * sample.emission * DELTA;
 
         if sample.distance > 0.0 {
-            // hit the disc?
+            // hit the disc
 
             let absorbance = exp(-1.0 * DELTA * sample.distance);
             if absorbance < rand() {
                 // change the direction of v but keep its magnitude
-                // TODO: maybe just normalize udir3 instead
                 v = length(v) * reflect(normalize(v), udir3());
 
                 attenuation *= pc.disk_color;
