@@ -280,16 +280,18 @@ impl Renderer {
 
     #[profiling::function]
     pub fn compute(&mut self) {
-        let origin = Vec3::new(0.0, 0.2, 3.3);
+        let view = self.config.view;
+
+        let origin = view.translation.into();
         let res = Vec2::new(self.buffer.width() as f32, self.buffer.height() as f32);
 
         self.buffer.par_for_each(|coord| {
             let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
             uv.y = -uv.y;
 
-            let ro = origin;
-            let rd = (uv * 2.0 * self.config.fov * FRAC_1_PI)
-                .extend(-1.0)
+            let ro = view.transform_vector3(origin);
+            let rd = view
+                .transform_vector3((uv * 2.0 * self.config.fov * FRAC_1_PI).extend(-1.0))
                 .normalize();
 
             let mut acc = Vec3::ZERO;

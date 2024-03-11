@@ -11,10 +11,12 @@ use std::{
 
 use clap::Parser;
 use common::{
+    camera::OrbitCamera,
     Config,
     Features,
 };
 use eframe::egui;
+use glam::Vec3;
 use graphics::wgpu;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -127,6 +129,9 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
             .filter_map(|f| Features::from_str(f).ok())
             .fold(Features::empty(), |acc, f| acc.union(f));
     }
+
+    let camera = OrbitCamera::new(3.3, 0.5..=3.5);
+    config.view = camera.look_at(Vec3::ZERO);
 
     let mut renderer = match renderer {
         RendererKind::Hardware => {
