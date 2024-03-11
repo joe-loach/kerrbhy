@@ -130,6 +130,7 @@ impl Marcher {
         );
 
         let push = shader::PushConstants {
+            features: self.config.features.bits(),
             origin: self.config.view.translation.into(),
             fov: self.config.fov,
             transform: self.config.view.into(),
@@ -137,7 +138,7 @@ impl Marcher {
             disk_color: self.config.disk.color,
             disk_radius: self.config.disk.radius,
             disk_thickness: self.config.disk.thickness,
-            pad: glam::UVec2::ZERO,
+            pad: 0,
         };
 
         let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());

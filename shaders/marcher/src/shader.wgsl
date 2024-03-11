@@ -7,6 +7,9 @@ const DELTA: f32 = 0.05;
 const BLACKHOLE_RADIUS: f32 = 0.6;
 const SKYBOX_RADIUS: f32 = 3.6;
 
+// Features
+const DISK: u32 = 1u;
+
 struct PushConstants {
     origin: vec3<f32>,
     fov: f32,
@@ -14,7 +17,8 @@ struct PushConstants {
     disk_radius: f32,
     disk_thickness: f32,
     sample: u32,
-    pad: vec2<u32>,
+    features: u32,
+    pad: u32,
     transform: mat4x4<f32>,
 }
 
@@ -27,6 +31,10 @@ var star_sampler: sampler;
 var stars: texture_2d<f32>;
 
 var<push_constant> pc: PushConstants;
+
+fn has_feature(f: u32) -> bool {
+    return (pc.features & f) == f;
+}
 
 fn rotate(v: vec2<f32>, theta: f32) -> vec2<f32> {
     let s = sin(theta);
@@ -143,20 +151,22 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
             break;
         }
 
-        let sample = disk(p);
-        r += attenuation * sample.emission * DELTA;
+        if has_feature(DISK) {
+            let sample = disk(p);
+            r += attenuation * sample.emission * DELTA;
 
-        if sample.distance > 0.0 {
-            // hit the disc
+            if sample.distance > 0.0 {
+                // hit the disc
 
-            let absorbance = exp(-1.0 * DELTA * sample.distance);
-            if absorbance < rand() {
-                // change the direction of v but keep its magnitude
-                v = length(v) * reflect(normalize(v), udir3());
+                let absorbance = exp(-1.0 * DELTA * sample.distance);
+                if absorbance < rand() {
+                    // change the direction of v but keep its magnitude
+                    v = length(v) * reflect(normalize(v), udir3());
 
-                attenuation *= pc.disk_color;
+                    attenuation *= pc.disk_color;
 
-                bounces++;
+                    bounces++;
+                }
             }
         }
 

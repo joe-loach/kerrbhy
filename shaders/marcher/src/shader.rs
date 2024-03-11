@@ -131,6 +131,9 @@ const DELTA: f32 = 0.05;
 const BLACKHOLE_RADIUS: f32 = 0.6;
 const SKYBOX_RADIUS: f32 = 3.6;
 
+// Features
+const DISK: u32 = 1u;
+
 struct PushConstants {
     origin: vec3<f32>,
     fov: f32,
@@ -138,7 +141,8 @@ struct PushConstants {
     disk_radius: f32,
     disk_thickness: f32,
     sample: u32,
-    pad: vec2<u32>,
+    features: u32,
+    pad: u32,
     transform: mat4x4<f32>,
 }
 
@@ -151,6 +155,10 @@ var star_sampler: sampler;
 var stars: texture_2d<f32>;
 
 var<push_constant> pc: PushConstants;
+
+fn has_feature(f: u32) -> bool {
+    return (pc.features & f) == f;
+}
 
 fn rotate(v: vec2<f32>, theta: f32) -> vec2<f32> {
     let s = sin(theta);
@@ -267,20 +275,22 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
             break;
         }
 
-        let sample = disk(p);
-        r += attenuation * sample.emission * DELTA;
+        if has_feature(DISK) {
+            let sample = disk(p);
+            r += attenuation * sample.emission * DELTA;
 
-        if sample.distance > 0.0 {
-            // hit the disc
+            if sample.distance > 0.0 {
+                // hit the disc
 
-            let absorbance = exp(-1.0 * DELTA * sample.distance);
-            if absorbance < rand() {
-                // change the direction of v but keep its magnitude
-                v = length(v) * reflect(normalize(v), udir3());
+                let absorbance = exp(-1.0 * DELTA * sample.distance);
+                if absorbance < rand() {
+                    // change the direction of v but keep its magnitude
+                    v = length(v) * reflect(normalize(v), udir3());
 
-                attenuation *= pc.disk_color;
+                    attenuation *= pc.disk_color;
 
-                bounces++;
+                    bounces++;
+                }
             }
         }
 
@@ -350,11 +360,12 @@ pub struct PushConstants {
     pub disk_radius: f32,
     pub disk_thickness: f32,
     pub sample: u32,
-    pub pad: glam::UVec2,
+    pub features: u32,
+    pub pad: u32,
     pub transform: glam::Mat4,
 }
 const _: () = assert!(
-    std::mem::size_of:: < PushConstants > () == 112,
+    std::mem::size_of::<PushConstants>() == 112,
     "size of PushConstants does not match WGSL"
 );
 const _: () = assert!(
@@ -382,7 +393,11 @@ const _: () = assert!(
     "offset of PushConstants.sample does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, pad) == 40,
+    memoffset::offset_of!(PushConstants, features) == 40,
+    "offset of PushConstants.features does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, pad) == 44,
     "offset of PushConstants.pad does not match WGSL"
 );
 const _: () = assert!(
@@ -398,6 +413,7 @@ pub const MAX_BOUNCES: u32 = 4u32;
 pub const DELTA: f32 = 0.05f32;
 pub const BLACKHOLE_RADIUS: f32 = 0.6f32;
 pub const SKYBOX_RADIUS: f32 = 3.6f32;
+pub const DISK: u32 = 1u32;
 pub mod bind_groups {
     use graphics::wgpu;
 
@@ -409,18 +425,16 @@ pub mod bind_groups {
     }
     const LAYOUT_DESCRIPTOR0: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
         label: None,
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::StorageTexture {
-                    access: wgpu::StorageTextureAccess::ReadWrite,
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::StorageTexture {
+                access: wgpu::StorageTextureAccess::ReadWrite,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                view_dimension: wgpu::TextureViewDimension::D2,
             },
-        ],
+            count: None,
+        }],
     };
     impl BindGroup0 {
         pub fn get_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -428,21 +442,14 @@ pub mod bind_groups {
         }
         pub fn from_bindings(device: &wgpu::Device, bindings: BindGroupLayout0) -> Self {
             let bind_group_layout = device.create_bind_group_layout(&LAYOUT_DESCRIPTOR0);
-            let bind_group = device
-                .create_bind_group(
-                    &wgpu::BindGroupDescriptor {
-                        layout: &bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(
-                                    bindings.buffer,
-                                ),
-                            },
-                        ],
-                        label: None,
-                    },
-                );
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(bindings.buffer),
+                }],
+                label: None,
+            });
             Self(bind_group)
         }
         pub fn set<'a>(&'a self, render_pass: &mut wgpu::ComputePass<'a>) {
@@ -469,9 +476,7 @@ pub mod bind_groups {
                 binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float {
-                        filterable: true,
-                    },
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     view_dimension: wgpu::TextureViewDimension::D2,
                     multisampled: false,
                 },
@@ -485,25 +490,20 @@ pub mod bind_groups {
         }
         pub fn from_bindings(device: &wgpu::Device, bindings: BindGroupLayout1) -> Self {
             let bind_group_layout = device.create_bind_group_layout(&LAYOUT_DESCRIPTOR1);
-            let bind_group = device
-                .create_bind_group(
-                    &wgpu::BindGroupDescriptor {
-                        layout: &bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::Sampler(
-                                    bindings.star_sampler,
-                                ),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 2,
-                                resource: wgpu::BindingResource::TextureView(bindings.stars),
-                            },
-                        ],
-                        label: None,
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(bindings.star_sampler),
                     },
-                );
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(bindings.stars),
+                    },
+                ],
+                label: None,
+            });
             Self(bind_group)
         }
         pub fn set<'a>(&'a self, render_pass: &mut wgpu::ComputePass<'a>) {
@@ -537,36 +537,29 @@ pub mod compute {
     pub fn create_comp_pipeline(device: &wgpu::Device) -> wgpu::ComputePipeline {
         let module = super::create_shader_module(device);
         let layout = super::create_pipeline_layout(device);
-        device
-            .create_compute_pipeline(
-                &wgpu::ComputePipelineDescriptor {
-                    label: Some("Compute Pipeline comp"),
-                    layout: Some(&layout),
-                    module: &module,
-                    entry_point: "comp",
-                },
-            )
+        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute Pipeline comp"),
+            layout: Some(&layout),
+            module: &module,
+            entry_point: "comp",
+        })
     }
 }
 pub const ENTRY_COMP: &str = "comp";
 pub fn create_shader_module(device: &wgpu::Device) -> wgpu::ShaderModule {
     let source = std::borrow::Cow::Borrowed(SOURCE);
-    device
-        .create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(source),
-        })
+    device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: None,
+        source: wgpu::ShaderSource::Wgsl(source),
+    })
 }
 pub fn create_pipeline_layout(device: &wgpu::Device) -> wgpu::PipelineLayout {
-    device
-        .create_pipeline_layout(
-            &wgpu::PipelineLayoutDescriptor {
-                label: None,
-                bind_group_layouts: &[
-                    &bind_groups::BindGroup0::get_bind_group_layout(device),
-                    &bind_groups::BindGroup1::get_bind_group_layout(device),
-                ],
-                push_constant_ranges: &[],
-            },
-        )
+    device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[
+            &bind_groups::BindGroup0::get_bind_group_layout(device),
+            &bind_groups::BindGroup1::get_bind_group_layout(device),
+        ],
+        push_constant_ranges: &[],
+    })
 }

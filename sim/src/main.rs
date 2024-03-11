@@ -1,7 +1,10 @@
 mod gui;
 mod input;
 
-use common::camera::OrbitCamera;
+use common::{
+    camera::OrbitCamera,
+    Features,
+};
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use glam::{
@@ -54,7 +57,10 @@ impl App {
             keyboard: input::Keyboard::new(),
 
             accumulate: true,
-            config: Config::default(),
+            config: Config {
+                features: Features::all(),
+                ..Config::default()
+            },
         }
     }
 
@@ -84,6 +90,15 @@ impl App {
 
 fn config_ui(ui: &mut egui::Ui, cfg: &mut Config) {
     ui.separator();
+
+    ui.vertical(|ui| {
+        ui.label("Features:");
+        for (name, f) in Features::all().iter_names() {
+            let mut on = cfg.features.contains(f);
+            ui.checkbox(&mut on, name);
+            cfg.features.set(f, on);
+        }
+    });
 
     ui.horizontal(|ui| {
         ui.label("Fov: ");

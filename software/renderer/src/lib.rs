@@ -1,6 +1,9 @@
 use std::f32::consts::FRAC_1_PI;
 
-use common::Config;
+use common::{
+    Config,
+    Features,
+};
 use glam::{
     Mat3,
     Vec2,
@@ -232,20 +235,22 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
             break;
         }
 
-        let sample = disk(p, config.disk.radius, config.disk.thickness);
-        r += attenuation * sample.emission * DELTA;
+        if config.features.contains(Features::DISK) {
+            let sample = disk(p, config.disk.radius, config.disk.thickness);
+            r += attenuation * sample.emission * DELTA;
 
-        if sample.distance > 0.0 {
-            // hit the disc
+            if sample.distance > 0.0 {
+                // hit the disc
 
-            let absorbance = (-1.0 * DELTA * sample.distance).exp();
-            if absorbance < rand() {
-                // change the direction of v but keep its magnitude
-                v = v.length() * reflect(v.normalize(), udir3());
+                let absorbance = (-1.0 * DELTA * sample.distance).exp();
+                if absorbance < rand() {
+                    // change the direction of v but keep its magnitude
+                    v = v.length() * reflect(v.normalize(), udir3());
 
-                attenuation *= config.disk.color;
+                    attenuation *= config.disk.color;
 
-                bounces += 1;
+                    bounces += 1;
+                }
             }
         }
 
