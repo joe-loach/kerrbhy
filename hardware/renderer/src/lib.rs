@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
+pub use common::Config;
 use graphics::wgpu;
 use rayon::{
     iter::ParallelIterator,
     slice::ParallelSlice,
 };
-
-pub use common::Config;
 
 pub struct Renderer {
     device: Arc<wgpu::Device>,

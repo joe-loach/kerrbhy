@@ -65,7 +65,11 @@ pub fn build_shader(file: impl AsRef<Path>) -> Result<(), Error> {
 
     writeln!(&mut text, "use graphics::wgpu;\n")?;
 
-    writeln!(&mut text, "pub static SOURCE: &str = r##\"{}\"##;\n", &wgsl_source)?;
+    writeln!(
+        &mut text,
+        "pub static SOURCE: &str = r##\"{}\"##;\n",
+        &wgsl_source
+    )?;
 
     let file_name = path
         .file_name()
