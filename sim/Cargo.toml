@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+common = { path = "../common" }
 event = { path = "../hardware/event" }
 graphics = { path = "../hardware/graphics" }
 hardware-renderer = { path = "../hardware/renderer" }

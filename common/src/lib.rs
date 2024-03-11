@@ -1,3 +1,5 @@
+pub mod camera;
+
 use std::str::FromStr;
 
 use glam::{

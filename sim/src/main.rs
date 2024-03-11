@@ -1,8 +1,7 @@
-mod camera;
 mod gui;
 mod input;
 
-use camera::OrbitCamera;
+use common::camera::OrbitCamera;
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use glam::{
