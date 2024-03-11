@@ -117,7 +117,7 @@ impl GuiState {
 
         let paint_jobs = self.context().tessellate(shapes, self.pixels_per_point);
 
-        let surface = state.surface();
+        let surface = state.surface_config();
         let screen_descriptor = &renderer::ScreenDescriptor {
             size_in_pixels: [surface.width, surface.height],
             pixels_per_point: self.pixels_per_point,

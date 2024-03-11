@@ -31,9 +31,9 @@ pub struct State<'a> {
     queue: &'a Arc<Queue>,
     window: &'a Window,
 
-    timer: &'a Timer,
+    timer: &'a mut Timer,
 
-    surface: &'a mut SurfaceConfiguration,
+    surface_config: &'a mut SurfaceConfiguration,
 
     dirty: bool,
 }
@@ -41,19 +41,19 @@ pub struct State<'a> {
 impl<'a> State<'a> {
     pub fn is_vsync(&self) -> bool {
         matches!(
-            self.surface.present_mode,
+            self.surface_config.present_mode,
             PresentMode::Fifo | PresentMode::FifoRelaxed | PresentMode::AutoVsync
         )
     }
 
     pub fn set_vsync(&mut self, vsync: bool) {
         self.dirty = vsync != self.is_vsync();
-        self.surface.present_mode = present_mode(vsync);
+        self.surface_config.present_mode = present_mode(vsync);
     }
 
     pub fn dimensions(&self) -> (u32, u32) {
         // both dimensions are guaranteed to be greater than 0
-        (self.surface.width, self.surface.height)
+        (self.surface_config.width, self.surface_config.height)
     }
 
     pub fn device(&self) -> Arc<Device> {
@@ -68,8 +68,8 @@ impl<'a> State<'a> {
         self.window
     }
 
-    pub fn surface(&self) -> &SurfaceConfiguration {
-        self.surface
+    pub fn surface_config(&self) -> &SurfaceConfiguration {
+        self.surface_config
     }
 
     pub fn timer(&self) -> &Timer {
@@ -93,7 +93,7 @@ pub trait EventHandler<T = ()>: Sized {
 
     #[inline(always)]
     #[allow(unused_variables)]
-    fn event(&mut self, event: Event<T>) -> bool {
+    fn event(&mut self, state: &State, event: Event<T>) -> bool {
         false
     }
 }
@@ -158,14 +158,23 @@ where
             return;
         }
 
+        let mut state = State {
+            device: &device,
+            queue: &queue,
+            window: &window,
+            timer: &mut timer,
+            surface_config: &mut config,
+            dirty: false,
+        };
+
         match event {
             WEvent::UserEvent(user) => {
                 // pass on user events to the state
-                let _ = app.event(Event::User(user));
+                let _ = app.event(&state, Event::User(user));
             }
 
             WEvent::WindowEvent { event, window_id } if window_id == window.id() => {
-                let _ = app.event(Event::Window(&event));
+                let _ = app.event(&state, Event::Window(&event));
 
                 match event {
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
@@ -180,10 +189,10 @@ where
                     WindowEvent::RedrawRequested => {
                         profiling::scope!("event::redraw");
 
-                        timer.tick();
+                        state.timer.tick();
 
                         if dirty {
-                            reconfigure_surface(&window, surface, &mut config, &device);
+                            reconfigure_surface(&window, surface, state.surface_config, &device);
                         }
 
                         // try to get the next texture
@@ -200,7 +209,12 @@ where
                                 suboptimal: true, ..
                             }) => {
                                 // reconfigure and try again
-                                reconfigure_surface(&window, surface, &mut config, &device);
+                                reconfigure_surface(
+                                    &window,
+                                    surface,
+                                    state.surface_config,
+                                    &device,
+                                );
                                 let new = surface.get_current_texture();
 
                                 match new {
@@ -217,15 +231,6 @@ where
                                 target.exit();
                                 return;
                             }
-                        };
-
-                        let mut state = State {
-                            device: &device,
-                            queue: &queue,
-                            window: &window,
-                            timer: &timer,
-                            surface: &mut config,
-                            dirty: false,
                         };
 
                         {
