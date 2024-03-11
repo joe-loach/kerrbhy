@@ -130,8 +130,9 @@ impl Marcher {
         );
 
         let push = shader::PushConstants {
-            origin: self.config.pos,
+            origin: self.config.view.translation.into(),
             fov: self.config.fov,
+            transform: self.config.view.into(),
             sample: self.sample_no,
             disk_color: self.config.disk.color,
             disk_radius: self.config.disk.radius,

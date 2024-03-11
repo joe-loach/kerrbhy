@@ -1,0 +1,105 @@
+use std::ops::{
+    Range,
+    RangeBounds,
+};
+
+use glam::{
+    Affine3A,
+    Vec2,
+    Vec3,
+};
+
+pub struct OrbitCamera {
+    /// radius of orbit
+    radius: f32,
+    /// radius bounds of the orbit
+    bounds: Range<f32>,
+    /// angle on the xz axis
+    phi: f32,
+    /// angle on the y axis
+    theta: f32,
+}
+
+impl OrbitCamera {
+    pub fn new(radius: f32, bounds: impl RangeBounds<f32>) -> Self {
+        Self {
+            radius,
+            bounds: range_from_range_bounds(bounds, 0.0, 1000.0),
+            phi: std::f32::consts::FRAC_PI_2,
+            theta: 0.0,
+        }
+    }
+
+    pub fn orbit(&mut self, delta: Vec2) {
+        self.theta += delta.x;
+        self.phi += delta.y;
+        self.phi = self.phi.clamp(0.1, std::f32::consts::PI - 0.1);
+    }
+
+    pub fn zoom(&mut self, delta: f32) {
+        let zoomed = self.radius + delta;
+        if self.bounds.contains(&zoomed) {
+            self.radius = zoomed;
+        }
+    }
+
+    pub fn eye(&self) -> Vec3 {
+        // get origin point in 3d space
+        let (ts, tc) = f32::sin_cos(self.theta);
+        let (ps, pc) = f32::sin_cos(self.phi);
+
+        // spherical to cartesian
+        let x = self.radius * ps * tc;
+        let y = self.radius * pc;
+        let z = self.radius * ps * ts;
+
+        Vec3::new(x, y, z)
+    }
+
+    pub fn look_at(&self, target: Vec3) -> Affine3A {
+        let eye = self.eye();
+
+        Affine3A::look_at_lh(eye, target, Vec3::Y)
+    }
+}
+
+fn range_from_range_bounds<T: RangeBounds<f32>>(range: T, min: f32, max: f32) -> Range<f32> {
+    use std::ops::Bound;
+
+    let start = match range.start_bound().cloned() {
+        Bound::Included(start) => start,
+        Bound::Excluded(start) => next_up(start),
+        Bound::Unbounded => min,
+    };
+
+    let end = match range.end_bound().cloned() {
+        Bound::Included(end) => next_up(end),
+        Bound::Excluded(end) => end,
+        Bound::Unbounded => max,
+    };
+    start..end
+}
+
+// taken from f32.rs
+// it is nightly but only because of const fn, which I have removed
+fn next_up(x: f32) -> f32 {
+    // We must use strictly integer arithmetic to prevent denormals from
+    // flushing to zero after an arithmetic operation on some platforms.
+    const TINY_BITS: u32 = 0x1; // Smallest positive f32.
+    const CLEAR_SIGN_MASK: u32 = 0x7fff_ffff;
+
+    let bits = x.to_bits();
+    if x.is_nan() || bits == f32::INFINITY.to_bits() {
+        return x;
+    }
+
+    let abs = bits & CLEAR_SIGN_MASK;
+    let next_bits = if abs == 0 {
+        TINY_BITS
+    } else if bits == abs {
+        bits + 1
+    } else {
+        bits - 1
+    };
+    f32::from_bits(next_bits)
+}

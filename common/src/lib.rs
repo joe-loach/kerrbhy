@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use glam::{
     vec3,
+    Affine3A,
     Vec3,
 };
 
@@ -18,7 +19,7 @@ impl FromStr for Features {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let kind = match s.to_lowercase().as_str() {
             "disk" => Features::DISK,
-            _ => return Err("invalid feature")
+            _ => return Err("invalid feature"),
         };
         Ok(kind)
     }
@@ -46,7 +47,7 @@ pub struct Config {
     pub samples: u32,
     pub features: Features,
     pub fov: f32,
-    pub pos: Vec3,
+    pub view: Affine3A,
     pub disk: Disk,
 }
 
@@ -56,7 +57,7 @@ impl Default for Config {
             samples: 1,
             features: Features::empty(),
             fov: 90_f32.to_radians(),
-            pos: vec3(0.0, 0.3, 3.3),
+            view: Affine3A::IDENTITY,
             disk: Default::default(),
         }
     }

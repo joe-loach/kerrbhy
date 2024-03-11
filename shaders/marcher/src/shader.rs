@@ -139,6 +139,7 @@ struct PushConstants {
     disk_thickness: f32,
     sample: u32,
     pad: vec2<u32>,
+    transform: mat4x4<f32>,
 }
 
 @group(0) @binding(0)
@@ -317,8 +318,8 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     // TODO: add AA filtering to the uv
     // https://en.wikipedia.org/wiki/Spatial_anti-aliasing
 
-    let ro = pc.origin;
-    let rd = normalize(vec3<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0));
+    let ro = (vec4<f32>(pc.origin, 0.0) * pc.transform).xyz;
+    let rd = normalize((vec4<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0, 0.0) * pc.transform).xyz);
 
     var color = render(ro, rd);
 
@@ -350,9 +351,10 @@ pub struct PushConstants {
     pub disk_thickness: f32,
     pub sample: u32,
     pub pad: glam::UVec2,
+    pub transform: glam::Mat4,
 }
 const _: () = assert!(
-    std::mem::size_of:: < PushConstants > () == 48,
+    std::mem::size_of:: < PushConstants > () == 112,
     "size of PushConstants does not match WGSL"
 );
 const _: () = assert!(
@@ -382,6 +384,10 @@ const _: () = assert!(
 const _: () = assert!(
     memoffset::offset_of!(PushConstants, pad) == 40,
     "offset of PushConstants.pad does not match WGSL"
+);
+const _: () = assert!(
+    memoffset::offset_of!(PushConstants, transform) == 48,
+    "offset of PushConstants.transform does not match WGSL"
 );
 pub const PI: f32 = 3.1415927f32;
 pub const TAU: f32 = 6.2831855f32;

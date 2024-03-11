@@ -1,9 +1,14 @@
+mod camera;
 mod gui;
 mod input;
 
+use camera::OrbitCamera;
 use event::EventHandler;
 use fullscreen::Fullscreen;
-use glam::vec3;
+use glam::{
+    vec2,
+    Vec3,
+};
 use graphics::wgpu;
 use gui::GuiState;
 use hardware_renderer::*;
@@ -18,6 +23,8 @@ struct App {
     renderer: Renderer,
     fullscreen: Fullscreen,
     gui: GuiState,
+
+    camera: OrbitCamera,
 
     mouse: input::Mouse,
     keyboard: input::Keyboard,
@@ -41,6 +48,8 @@ impl App {
             renderer,
             fullscreen,
             gui,
+
+            camera: OrbitCamera::new(3.3, 0.5..=3.5),
 
             mouse: input::Mouse::new(),
             keyboard: input::Keyboard::new(),
@@ -106,24 +115,28 @@ impl EventHandler for App {
 
         let dt = state.timer().dt();
 
+        let mut v = vec2(0.0, 0.0);
         if self.keyboard.is_down(KeyCode::KeyW) {
-            self.config.pos += vec3(0.0, 0.0, -1.0) * dt;
+            v.y += 1.0 * dt;
         }
         if self.keyboard.is_down(KeyCode::KeyS) {
-            self.config.pos += vec3(0.0, 0.0, 1.0) * dt;
+            v.y += -1.0 * dt;
         }
         if self.keyboard.is_down(KeyCode::KeyA) {
-            self.config.pos += vec3(-1.0, 0.0, 0.0) * dt;
+            v.x += 1.0 * dt;
         }
         if self.keyboard.is_down(KeyCode::KeyD) {
-            self.config.pos += vec3(1.0, 0.0, 0.0) * dt;
+            v.x += -1.0 * dt;
         }
-        if self.keyboard.is_down(KeyCode::Space) {
-            self.config.pos += vec3(0.0, 1.0, 0.0) * dt;
-        }
-        if self.keyboard.is_down(KeyCode::ControlLeft) {
-            self.config.pos += vec3(0.0, -1.0, 0.0) * dt;
-        }
+
+        self.camera.orbit(v);
+
+        let zoom = -self.mouse.scroll_delta().y / input::Mouse::PIXELS_PER_LINE;
+        self.camera.zoom(zoom * dt);
+        self.mouse.smooth(dt);
+
+        // orbit around the origin
+        self.config.view = self.camera.look_at(Vec3::ZERO);
 
         self.renderer.update(width, height, self.config.clone());
 
@@ -148,11 +161,11 @@ impl EventHandler for App {
         self.gui.draw(state, encoder, target);
     }
 
-    fn event(&mut self, event: event::Event<()>) -> bool {
+    fn event(&mut self, state: &event::State, event: event::Event<()>) -> bool {
         let consumed = self.gui.handle_event(&event);
 
         if !consumed {
-            self.mouse.update_state(&event);
+            self.mouse.update_state(state.window(), &event);
             self.keyboard.update_state(&event);
         }
 
