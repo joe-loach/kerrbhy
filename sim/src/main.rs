@@ -31,6 +31,8 @@ struct App {
     mouse: input::Mouse,
     keyboard: input::Keyboard,
 
+    profiler: bool,
+
     accumulate: bool,
     config: Config,
 }
@@ -56,6 +58,8 @@ impl App {
             mouse: input::Mouse::new(),
             keyboard: input::Keyboard::new(),
 
+            profiler: false,
+
             accumulate: true,
             config: Config {
                 features: Features::all(),
@@ -68,21 +72,32 @@ impl App {
     fn ui(&mut self, ctx: egui::Context, state: &mut event::State) {
         let mut vsync = state.is_vsync();
 
-        egui::Window::new("Info").show(&ctx, |ui| {
-            ui.checkbox(&mut vsync, "vsync");
-            ui.checkbox(&mut self.accumulate, "accumulate");
+        egui::Area::new("Info Area")
+            .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
+            .show(&ctx, |ui| {
+                ui.collapsing("Info", |ui| {
+                    ui.checkbox(&mut vsync, "vsync");
+                    ui.checkbox(&mut self.accumulate, "accumulate");
 
-            config_ui(ui, &mut self.config);
+                    config_ui(ui, &mut self.config);
 
-            let on = !ui
-                .collapsing("Profiler", |ui| {
-                    profiling::scope!("profiler");
-                    puffin_egui::profiler_ui(ui);
-                })
-                .fully_closed();
+                    if ui.button("Profiler").clicked() {
+                        self.profiler = true;
+                        puffin::set_scopes_on(true);
+                    }
+                });
+            });
 
-            puffin::set_scopes_on(on);
-        });
+        let response = egui::Window::new("Profiler")
+            .open(&mut self.profiler)
+            .show(&ctx, |ui| {
+                profiling::scope!("profiler");
+                puffin_egui::profiler_ui(ui);
+            });
+
+        if puffin::are_scopes_on() && response.is_none() {
+            puffin::set_scopes_on(false);
+        }
 
         state.set_vsync(vsync);
     }
