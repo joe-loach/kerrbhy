@@ -8,4 +8,7 @@ license.workspace = true
 
 [dependencies]
 glam = { workspace = true }
-bitflags = "2.4"
+thiserror = { workspace = true }
+bitflags = { version = "2.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8.11"

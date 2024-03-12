@@ -8,12 +8,23 @@ use glam::{
     Vec2,
     Vec3,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
+use crate::angle::Radians;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OrbitCamera {
+    /// fov of the camera
+    pub fov: Radians,
     /// radius of orbit
     radius: f32,
     /// radius bounds of the orbit
     bounds: Range<f32>,
+    /// target to orbit around
+    target: Vec3,
     /// angle on the xz axis
     phi: f32,
     /// angle on the y axis
@@ -21,13 +32,26 @@ pub struct OrbitCamera {
 }
 
 impl OrbitCamera {
-    pub fn new(radius: f32, bounds: impl RangeBounds<f32>) -> Self {
+    pub fn new(
+        fov: impl Into<Radians>,
+        radius: f32,
+        bounds: impl RangeBounds<f32>,
+        target: Vec3,
+    ) -> Self {
         Self {
+            fov: fov.into(),
             radius,
             bounds: range_from_range_bounds(bounds, 0.0, 1000.0),
+            target,
             phi: std::f32::consts::FRAC_PI_2,
             theta: 0.0,
         }
+    }
+
+    pub fn view(&self) -> Affine3A {
+        let eye = self.eye();
+
+        Affine3A::look_at_lh(eye, self.target, Vec3::Y)
     }
 
     pub fn orbit(&mut self, delta: Vec2) {
@@ -56,10 +80,16 @@ impl OrbitCamera {
         Vec3::new(x, y, z)
     }
 
-    pub fn look_at(&self, target: Vec3) -> Affine3A {
-        let eye = self.eye();
+    pub fn set_target(&mut self, target: Vec3) {
+        self.target = target;
+    }
 
-        Affine3A::look_at_lh(eye, target, Vec3::Y)
+    pub fn set_phi(&mut self, phi: f32) {
+        self.phi = phi;
+    }
+
+    pub fn set_theta(&mut self, theta: f32) {
+        self.theta = theta;
     }
 }
 

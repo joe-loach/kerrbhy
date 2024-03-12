@@ -1,5 +1,5 @@
 use std::{
-    str::FromStr,
+    path::PathBuf,
     sync::{
         atomic::{
             AtomicBool,
@@ -10,13 +10,8 @@ use std::{
 };
 
 use clap::Parser;
-use common::{
-    camera::OrbitCamera,
-    Config,
-    Features,
-};
+use common::Config;
 use eframe::egui;
-use glam::Vec3;
 use graphics::wgpu;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -37,12 +32,8 @@ struct Args {
     width: u32,
     height: u32,
 
-    #[clap(long)]
-    fov: Option<f32>,
-
-    // have to have at least one sample
-    #[clap(long, value_parser = clap::value_parser!(u32).range(1..))]
-    samples: Option<u32>,
+    #[clap(short, long)]
+    config: Option<PathBuf>,
 
     #[clap(long)]
     flamegraph: bool,
@@ -86,8 +77,6 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
     let Args {
         width,
         height,
-        fov,
-        samples,
         renderer,
         ..
     } = *args;
@@ -113,25 +102,11 @@ fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
         cb.build::<()>(None)?
     };
 
-    let mut config = Config::default();
-
-    if let Some(fov) = fov {
-        config.fov = fov;
-    }
-
-    if let Some(samples) = samples {
-        config.samples = samples;
-    }
-
-    if let Some(ref features) = args.features {
-        config.features = features
-            .iter()
-            .filter_map(|f| Features::from_str(f).ok())
-            .fold(Features::empty(), |acc, f| acc.union(f));
-    }
-
-    let camera = OrbitCamera::new(3.3, 0.5..=3.5);
-    config.view = camera.look_at(Vec3::ZERO);
+    let config = if let Some(path) = args.config.as_ref() {
+        Config::load_from_path(path)?
+    } else {
+        Config::default()
+    };
 
     let mut renderer = match renderer {
         RendererKind::Hardware => {

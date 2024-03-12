@@ -12,6 +12,7 @@ hardware-renderer = { path = "../hardware/renderer" }
 fullscreen = { path = "../shaders/fullscreen" }
 
 egui = { version = "0.26", features = ["bytemuck"] }
+egui_file = "0.16.3"
 puffin_egui = "0.26.0"
 
 winit = { workspace = true }

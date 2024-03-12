@@ -285,7 +285,8 @@ impl Renderer {
 
     #[profiling::function]
     pub fn compute(&mut self) {
-        let view = self.config.view;
+        let view = self.config.camera.view();
+        let fov = self.config.camera.fov().as_f32();
 
         let origin = view.translation.into();
         let res = Vec2::new(self.buffer.width() as f32, self.buffer.height() as f32);
@@ -296,7 +297,7 @@ impl Renderer {
 
             let ro = view.transform_vector3(origin);
             let rd = view
-                .transform_vector3((uv * 2.0 * self.config.fov * FRAC_1_PI).extend(-1.0))
+                .transform_vector3((uv * 2.0 * fov * FRAC_1_PI).extend(-1.0))
                 .normalize();
 
             let mut acc = Vec3::ZERO;

@@ -129,11 +129,13 @@ impl Marcher {
             },
         );
 
+        let view = self.config.camera.view();
+
         let push = shader::PushConstants {
             features: self.config.features.bits(),
-            origin: self.config.view.translation.into(),
-            fov: self.config.fov,
-            transform: self.config.view.into(),
+            origin: view.translation.into(),
+            fov: self.config.camera.fov().as_f32(),
+            transform: view.into(),
             sample: self.sample_no,
             disk_color: self.config.disk.color,
             disk_radius: self.config.disk.radius,

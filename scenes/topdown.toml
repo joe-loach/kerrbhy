@@ -1,0 +1,26 @@
+samples = 1
+features = "DISK"
+
+[camera.Orbit]
+fov = 1.2217304706573486
+radius = 3.4999489784240723
+target = [
+    0.0,
+    0.0,
+    0.0,
+]
+phi = 1.7457140684127808
+theta = 4.697805404663086
+
+[camera.Orbit.bounds]
+start = 0.5
+end = 3.500000238418579
+
+[disk]
+radius = 8.0
+thickness = 2.0
+color = [
+    0.30000001192092896,
+    0.20000000298023224,
+    0.10000000149011612,
+]
