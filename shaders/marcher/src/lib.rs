@@ -33,7 +33,7 @@ pub struct Marcher {
 impl Marcher {
     #[profiling::function]
     pub fn new(device: Arc<wgpu::Device>, queue: &wgpu::Queue) -> Self {
-        let pipeline = create_pipeline(&device);
+        let pipeline = shader::compute::create_comp_pipeline(&device);
 
         let stars = {
             profiling::scope!("loading textures");
@@ -168,33 +168,6 @@ impl Marcher {
             ..buffer_texture_descriptor()
         });
     }
-}
-
-fn create_pipeline(device: &wgpu::Device) -> ComputePipeline {
-    let module = {
-        let source = std::borrow::Cow::Borrowed(shader::SOURCE);
-        device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(source),
-        })
-    };
-    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[
-            &BindGroup0::get_bind_group_layout(device),
-            &BindGroup1::get_bind_group_layout(device),
-        ],
-        push_constant_ranges: &[wgpu::PushConstantRange {
-            stages: wgpu::ShaderStages::COMPUTE,
-            range: 0..std::mem::size_of::<shader::PushConstants>() as u32,
-        }],
-    });
-    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("Compute Pipeline comp"),
-        layout: Some(&layout),
-        module: &module,
-        entry_point: "comp",
-    })
 }
 
 fn buffer_texture_descriptor() -> wgpu::TextureDescriptor<'static> {
