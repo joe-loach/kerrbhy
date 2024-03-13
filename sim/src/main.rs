@@ -248,7 +248,43 @@ impl EventHandler for App {
     }
 }
 
+fn init_logger() -> Result<(), fern::InitError> {
+    const LOG_LEVEL_ENV: &str = "KERRBHY_LOG";
+
+    // try and get the log level and parse it from ENV
+    let level = std::env::var(LOG_LEVEL_ENV)
+        .ok()
+        .and_then(|level| level.parse::<log::LevelFilter>().ok())
+        .unwrap_or({
+            // choose specific defaults if not in release
+            if cfg!(debug_assertions) {
+                log::LevelFilter::Warn
+            } else {
+                log::LevelFilter::Error
+            }
+        });
+
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                time::OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(level)
+        // output to std-error
+        .chain(std::io::stderr())
+        .apply()?;
+
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
+    init_logger()?;
+
     let event_loop = event::EventLoopBuilder::with_user_event().build()?;
     let window = WindowBuilder::new().with_title("Kerrbhy");
 
