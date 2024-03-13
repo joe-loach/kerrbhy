@@ -11,11 +11,16 @@ use egui_file::{
     FileDialog,
 };
 
+pub enum Action {
+    Saved,
+    Opened
+}
+
 pub fn show(
     ctx: &Context,
     dialog: Option<&mut FileDialog>,
     config: &mut Config,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<Action>> {
     if let Some(dialog) = dialog {
         if dialog.show(ctx).selected() {
             match dialog.dialog_type() {
@@ -29,6 +34,8 @@ pub fn show(
                             log::info!("loaded new config from {}", path.display());
 
                             *config = cfg;
+
+                            return Ok(Some(Action::Opened));
                         } else {
                             log::error!("failed to load config from {}", path.display());
                         }
@@ -49,6 +56,9 @@ pub fn show(
                         file.flush()?;
 
                         log::info!("saved config to {}", path.display());
+
+                        return Ok(Some(Action::Saved));
+
                     }
                 }
                 _ => unreachable!(),
@@ -56,5 +66,5 @@ pub fn show(
         }
     }
 
-    Ok(())
+    Ok(None)
 }
