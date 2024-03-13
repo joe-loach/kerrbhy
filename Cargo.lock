@@ -842,6 +842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-toast"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fe0437ed2c827749fb57edb3dc62e796805974b11ce7aed1a001200fee92aba"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-winit"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2567,6 +2576,7 @@ dependencies = [
  "bytemuck",
  "common",
  "egui",
+ "egui-toast",
  "egui_file",
  "event",
  "fern",

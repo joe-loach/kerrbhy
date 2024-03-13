@@ -2,12 +2,14 @@ mod gui;
 mod input;
 mod ui;
 
-use std::path::PathBuf;
+use std::sync::mpsc;
 
-use common::Features;
-use egui_file::{
-    DialogType,
-    FileDialog,
+use egui_file::FileDialog;
+use egui_toast::{
+    Toast,
+    ToastKind,
+    ToastOptions,
+    Toasts,
 };
 use event::EventHandler;
 use fullscreen::Fullscreen;
@@ -37,10 +39,16 @@ struct App {
 
     accumulate: bool,
     config: Config,
+
+    error_logs: mpsc::Receiver<String>,
 }
 
 impl App {
-    fn new<T>(_event_loop: &EventLoop<T>, ctx: &graphics::Context) -> Self {
+    fn new<T>(
+        _event_loop: &EventLoop<T>,
+        ctx: &graphics::Context,
+        errors: mpsc::Receiver<String>,
+    ) -> Self {
         let renderer = Renderer::new(ctx);
         let fullscreen = Fullscreen::new(ctx);
         let gui = GuiState::new(ctx);
@@ -64,6 +72,8 @@ impl App {
 
             accumulate: true,
             config: Config::default(),
+
+            error_logs: errors,
         }
     }
 
@@ -71,38 +81,38 @@ impl App {
     fn ui(&mut self, ctx: egui::Context, state: &mut event::State) {
         let mut vsync = state.is_vsync();
 
-        egui::Area::new("Info Area")
-            .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
-            .show(&ctx, |ui| {
-                ui.collapsing("Info", |ui| {
-                    ui.checkbox(&mut vsync, "vsync");
-                    ui.checkbox(&mut self.accumulate, "accumulate");
+        // create toast notifications
+        let mut toasts = Toasts::new()
+            .anchor(egui::Align2::CENTER_BOTTOM, (0.0, -10.0))
+            .direction(egui::Direction::TopDown);
 
-                    ui::config::show(ui, &mut self.config);
+        let toast_options = ToastOptions::default().duration_in_seconds(4.0);
 
-                    let dir = self
-                        .file_dialog
-                        .as_ref()
-                        .map(|fd| fd.directory().to_owned());
+        egui::TopBottomPanel::top("Top Bar").show(&ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.style_mut().visuals.button_frame = false;
 
-                    if ui.button("Save").clicked() {
-                        let mut dialog = FileDialog::save_file(dir.clone());
-                        dialog.open();
-                        self.file_dialog = Some(dialog);
-                    }
-                    if ui.button("Load").clicked() {
-                        let mut dialog = FileDialog::open_file(dir.clone());
-                        dialog.open();
-                        self.file_dialog = Some(dialog);
-                    }
+                let dir = self
+                    .file_dialog
+                    .as_ref()
+                    .map(|fd| fd.directory().to_owned());
 
-                    if let Err(e) =
-                        ui::file_dialog::show(&ctx, self.file_dialog.as_mut(), &mut self.config)
-                    {
-                        log::error!(target: "file dialog", "{e}");
-                    }
+                ui.add_space(10.0);
 
-                    ui.separator();
+                if ui.button("Save").clicked() {
+                    let mut dialog = FileDialog::save_file(dir.clone());
+                    dialog.open();
+                    self.file_dialog = Some(dialog);
+                }
+
+                if ui.button("Open").clicked() {
+                    let mut dialog = FileDialog::open_file(dir.clone());
+                    dialog.open();
+                    self.file_dialog = Some(dialog);
+                }
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(10.0);
 
                     if ui.button("Profiler").clicked() {
                         self.profiler = true;
@@ -110,6 +120,39 @@ impl App {
                     }
                 });
             });
+        });
+
+        egui::Area::new("Settings Area")
+            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            .show(&ctx, |ui| {
+                ui.collapsing("Settings", |ui| {
+                    ui.checkbox(&mut vsync, "vsync");
+                    ui.checkbox(&mut self.accumulate, "accumulate");
+
+                    ui::config::show(ui, &mut self.config);
+                });
+            });
+
+        match ui::file_dialog::show(&ctx, self.file_dialog.as_mut(), &mut self.config) {
+            Ok(Some(ui::file_dialog::Action::Opened)) => {
+                toasts.add(Toast {
+                    kind: ToastKind::Success,
+                    text: "Opened file".into(),
+                    options: toast_options,
+                });
+            }
+            Ok(Some(ui::file_dialog::Action::Saved)) => {
+                toasts.add(Toast {
+                    kind: ToastKind::Success,
+                    text: "Saved file".into(),
+                    options: toast_options,
+                });
+            }
+            Ok(None) => (),
+            Err(e) => {
+                log::error!(target: "file dialog", "{e}");
+            }
+        }
 
         let response = egui::Window::new("Profiler")
             .open(&mut self.profiler)
@@ -121,6 +164,18 @@ impl App {
         if puffin::are_scopes_on() && response.is_none() {
             puffin::set_scopes_on(false);
         }
+
+        // read error notifications from channel
+        if let Ok(msg) = self.error_logs.try_recv() {
+            toasts.add(Toast {
+                kind: ToastKind::Error,
+                text: msg.into(),
+                options: toast_options,
+            });
+        }
+
+        // show all the toasts at the end
+        toasts.show(&ctx);
 
         state.set_vsync(vsync);
     }
@@ -193,7 +248,7 @@ impl EventHandler for App {
     }
 }
 
-fn init_logger() -> Result<(), fern::InitError> {
+fn init_logger() -> Result<mpsc::Receiver<String>, fern::InitError> {
     const LOG_LEVEL_ENV: &str = "KERRBHY_LOG";
 
     // try and get the log level and parse it from ENV
@@ -209,26 +264,39 @@ fn init_logger() -> Result<(), fern::InitError> {
             }
         });
 
+    // create a channel for listening to logs
+    let (tx, rx) = mpsc::channel();
+
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}] {}",
-                time::OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
         .level(level)
-        // output to std-error
-        .chain(std::io::stderr())
+        // output to std-error with as much info as possible
+        .chain(
+            fern::Dispatch::new()
+                .format(|out, message, record| {
+                    out.finish(format_args!(
+                        "[{} {} {}] {}",
+                        time::OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
+                        record.level(),
+                        record.target(),
+                        message
+                    ))
+                })
+                .chain(std::io::stderr()),
+        )
+        // output simple errors to the channel
+        .chain(
+            fern::Dispatch::new()
+                .format(|out, message, _| out.finish(format_args!("{}", message)))
+                .level(log::LevelFilter::Error)
+                .chain(fern::Output::sender(tx, "")),
+        )
         .apply()?;
 
-    Ok(())
+    Ok(rx)
 }
 
 fn main() -> anyhow::Result<()> {
-    init_logger()?;
+    let error_logs = init_logger()?;
 
     let event_loop = event::EventLoopBuilder::with_user_event().build()?;
     let window = WindowBuilder::new().with_title("Kerrbhy");
@@ -243,7 +311,7 @@ fn main() -> anyhow::Result<()> {
     )
     .with_window(window);
 
-    event::run(event_loop, cb, App::new)?;
+    event::run(event_loop, cb, |el, ctx| App::new(el, ctx, error_logs))?;
 
     Ok(())
 }
