@@ -1,5 +1,6 @@
 mod gui;
 mod input;
+mod ui;
 
 use std::path::PathBuf;
 
@@ -14,6 +15,7 @@ use glam::vec2;
 use graphics::wgpu;
 use gui::GuiState;
 use hardware_renderer::*;
+use time::format_description::well_known::Rfc3339;
 use winit::{
     dpi::PhysicalSize,
     event_loop::EventLoop,
@@ -30,7 +32,6 @@ struct App {
     keyboard: input::Keyboard,
 
     file_dialog: Option<FileDialog>,
-    last_path: Option<PathBuf>,
 
     profiler: bool,
 
@@ -58,7 +59,6 @@ impl App {
             keyboard: input::Keyboard::new(),
 
             file_dialog: None,
-            last_path: None,
 
             profiler: false,
 
@@ -78,46 +78,28 @@ impl App {
                     ui.checkbox(&mut vsync, "vsync");
                     ui.checkbox(&mut self.accumulate, "accumulate");
 
-                    config_ui(ui, &mut self.config);
+                    ui::config::show(ui, &mut self.config);
+
+                    let dir = self
+                        .file_dialog
+                        .as_ref()
+                        .map(|fd| fd.directory().to_owned());
 
                     if ui.button("Save").clicked() {
-                        let mut dialog = FileDialog::save_file(self.last_path.clone());
+                        let mut dialog = FileDialog::save_file(dir.clone());
                         dialog.open();
                         self.file_dialog = Some(dialog);
                     }
                     if ui.button("Load").clicked() {
-                        let mut dialog = FileDialog::open_file(self.last_path.clone());
+                        let mut dialog = FileDialog::open_file(dir.clone());
                         dialog.open();
                         self.file_dialog = Some(dialog);
                     }
 
-                    if let Some(dialog) = self.file_dialog.as_mut() {
-                        if dialog.show(&ctx).selected() {
-                            match dialog.dialog_type() {
-                                DialogType::OpenFile => {
-                                    if let Some(path) = dialog.path() {
-                                        let contents = std::fs::read_to_string(path)
-                                            .expect("failed to read config file");
-                                        if let Ok(cfg) = Config::load(&contents) {
-                                            self.config = cfg;
-                                        }
-                                    }
-                                }
-                                DialogType::SaveFile => {
-                                    if let Some(path) = dialog.path() {
-                                        let mut file = std::fs::File::options()
-                                            .write(true)
-                                            .truncate(true)
-                                            .create(true)
-                                            .open(path)
-                                            .expect("failed to create config file");
-                                        self.config.save(&mut file).expect("failed to save config");
-                                        self.last_path = Some(dialog.directory().to_path_buf());
-                                    }
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
+                    if let Err(e) =
+                        ui::file_dialog::show(&ctx, self.file_dialog.as_mut(), &mut self.config)
+                    {
+                        log::error!(target: "file dialog", "{e}");
                     }
 
                     ui.separator();
@@ -142,43 +124,6 @@ impl App {
 
         state.set_vsync(vsync);
     }
-}
-
-fn config_ui(ui: &mut egui::Ui, cfg: &mut Config) {
-    ui.separator();
-
-    ui.vertical(|ui| {
-        ui.label("Features:");
-        for (name, f) in Features::all().iter_names() {
-            let mut on = cfg.features.contains(f);
-            ui.checkbox(&mut on, name);
-            cfg.features.set(f, on);
-        }
-    });
-
-    ui.horizontal(|ui| {
-        ui.label("Fov: ");
-        ui.drag_angle(&mut cfg.camera.fov_mut().0);
-    });
-    ui.vertical(|ui| {
-        ui.set_enabled(cfg.features.contains(Features::DISK));
-
-        ui.label("Disk");
-        ui.add(
-            egui::DragValue::new(&mut cfg.disk.radius)
-                .speed(0.1)
-                .prefix("Radius: ")
-                .clamp_range(0.0..=10.0),
-        );
-        ui.add(
-            egui::DragValue::new(&mut cfg.disk.thickness)
-                .speed(0.1)
-                .prefix("Thickness: ")
-                .clamp_range(0.0..=10.0),
-        );
-    });
-
-    ui.separator();
 }
 
 impl EventHandler for App {
