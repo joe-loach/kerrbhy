@@ -26,6 +26,7 @@ fern = { workspace = true }
 
 time = { version = "0.3", features = [ "formatting"] }
 
+wgpu-profiler = { workspace = true }
 profiling = { workspace = true }
 puffin = { workspace = true }
 
