@@ -96,6 +96,10 @@ pub trait EventHandler<T = ()>: Sized {
     fn event(&mut self, state: &State, event: Event<T>) -> bool {
         false
     }
+
+    #[inline(always)]
+    #[allow(unused_variables)]
+    fn frame_end(&mut self, queue: &Queue) {}
 }
 
 pub fn run<E, T>(
@@ -258,6 +262,8 @@ where
                         dirty = state.dirty;
 
                         profiling::finish_frame!();
+
+                        app.frame_end(state.queue);
                     }
                     _ => (),
                 }
