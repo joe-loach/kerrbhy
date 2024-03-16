@@ -13,7 +13,7 @@ use egui_file::{
 
 pub enum Action {
     Saved,
-    Opened
+    Opened,
 }
 
 pub fn show(
@@ -58,7 +58,6 @@ pub fn show(
                         log::info!("saved config to {}", path.display());
 
                         return Ok(Some(Action::Saved));
-
                     }
                 }
                 _ => unreachable!(),
