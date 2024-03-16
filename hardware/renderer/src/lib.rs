@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 pub use common::Config;
-use graphics::wgpu;
+use graphics::{
+    wgpu,
+    Encoder,
+};
 use rayon::{
     iter::ParallelIterator,
     slice::ParallelSlice,
@@ -45,7 +48,7 @@ impl Renderer {
     }
 
     #[profiling::function]
-    pub fn compute(&mut self, encoder: &mut wgpu::CommandEncoder) {
+    pub fn compute(&mut self, encoder: &mut Encoder) {
         self.marcher.record(encoder);
     }
 

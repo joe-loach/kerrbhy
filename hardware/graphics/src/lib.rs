@@ -1,9 +1,13 @@
+mod encoder;
 mod error;
+mod pass;
 
 use std::sync::Arc;
 
+pub use encoder::Encoder;
 pub use error::Error as ContextBuildError;
 use error::Error;
+pub use pass::*;
 pub use wgpu;
 use wgpu::{
     Adapter,

@@ -26,6 +26,7 @@ log = "0.4"
 fern = { version = "0.6", features = ["colored"] }
 
 # profiling
+wgpu-profiler = { version = "0.16", features = ["tracy"] }
 profiling = { version = "1.0", features = ["profile-with-puffin"] }
 puffin = "0.19"
 

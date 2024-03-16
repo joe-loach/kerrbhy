@@ -14,7 +14,10 @@ use egui_toast::{
 use event::EventHandler;
 use fullscreen::Fullscreen;
 use glam::vec2;
-use graphics::wgpu;
+use graphics::{
+    wgpu,
+    Encoder,
+};
 use gui::GuiState;
 use hardware_renderer::*;
 use time::format_description::well_known::Rfc3339;
@@ -35,7 +38,7 @@ struct App {
 
     file_dialog: Option<FileDialog>,
 
-    profiler: bool,
+    show_profiler: bool,
 
     accumulate: bool,
     config: Config,
@@ -68,7 +71,7 @@ impl App {
 
             file_dialog: None,
 
-            profiler: false,
+            show_profiler: false,
 
             accumulate: true,
             config: Config::default(),
@@ -115,7 +118,7 @@ impl App {
                     ui.add_space(10.0);
 
                     if ui.button("Profiler").clicked() {
-                        self.profiler = true;
+                        self.show_profiler = true;
                         puffin::set_scopes_on(true);
                     }
                 });
@@ -155,7 +158,7 @@ impl App {
         }
 
         let response = egui::Window::new("Profiler")
-            .open(&mut self.profiler)
+            .open(&mut self.show_profiler)
             .show(&ctx, |ui| {
                 profiling::scope!("profiler");
                 puffin_egui::profiler_ui(ui);
@@ -226,6 +229,8 @@ impl EventHandler for App {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
+        let encoder = &mut Encoder::from(encoder);
+
         // only compute more work when it's needed
         if self.accumulate || self.renderer.must_render() {
             self.renderer.compute(encoder);
@@ -233,7 +238,7 @@ impl EventHandler for App {
 
         self.fullscreen.draw(encoder, &self.renderer.view(), target);
 
-        self.gui.draw(state, encoder, target);
+        self.gui.draw(state, encoder.inner(), target);
     }
 
     fn event(&mut self, state: &event::State, event: event::Event<()>) -> bool {

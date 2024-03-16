@@ -4,15 +4,17 @@ mod shader;
 use std::sync::Arc;
 
 use common::Config;
-use graphics::wgpu::{
-    self,
-    util::DeviceExt,
-    ComputePassDescriptor,
-    ComputePipeline,
-    Sampler,
-    Texture,
-    TextureDescriptor,
-    TextureView,
+use graphics::{
+    wgpu::{
+        self,
+        util::DeviceExt,
+        ComputePipeline,
+        Sampler,
+        Texture,
+        TextureDescriptor,
+        TextureView,
+    },
+    Encoder,
 };
 use shader::bind_groups::*;
 
@@ -111,7 +113,7 @@ impl Marcher {
     }
 
     #[profiling::function]
-    pub fn record(&mut self, encoder: &mut wgpu::CommandEncoder) {
+    pub fn record(&mut self, encoder: &mut Encoder) {
         let [width, height] = [self.texture.width(), self.texture.height()];
 
         let bind_group0 = BindGroup0::from_bindings(
@@ -143,7 +145,7 @@ impl Marcher {
             pad: 0,
         };
 
-        let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
+        let mut pass = encoder.begin_compute_pass("marcher", &self.device);
         pass.set_pipeline(&self.pipeline);
         pass.set_push_constants(0, bytemuck::bytes_of(&push));
         shader::set_bind_groups(&mut pass, &bind_group0, &bind_group1);
@@ -152,9 +154,7 @@ impl Marcher {
         let x = (width as f32 / x as f32).ceil() as u32;
         let y = (height as f32 / y as f32).ceil() as u32;
 
-        for _ in 0..self.config.samples {
-            pass.dispatch_workgroups(x, y, 1);
-        }
+        pass.dispatch_workgroups(x, y, 1);
 
         self.sample_no += 1;
     }

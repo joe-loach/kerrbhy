@@ -2,7 +2,10 @@ mod shader;
 
 use std::sync::Arc;
 
-use graphics::wgpu;
+use graphics::{
+    wgpu,
+    Encoder,
+};
 
 pub struct Fullscreen {
     device: Arc<wgpu::Device>,
@@ -53,7 +56,7 @@ impl Fullscreen {
     #[profiling::function]
     pub fn draw(
         &mut self,
-        encoder: &mut wgpu::CommandEncoder,
+        encoder: &mut Encoder,
         source: &wgpu::TextureView,
         target: &wgpu::TextureView,
     ) {
@@ -65,20 +68,24 @@ impl Fullscreen {
             },
         );
 
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        let mut pass = encoder.begin_render_pass(
+            "fullscreen",
+            &self.device,
+            wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            },
+        );
         pass.set_pipeline(&self.pipeline);
         shader::set_bind_groups(&mut pass, &binding);
         // only need to draw 3 vertices
