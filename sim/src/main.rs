@@ -2,10 +2,7 @@ mod gui;
 mod input;
 mod ui;
 
-use std::{
-    collections::HashMap,
-    sync::mpsc,
-};
+use std::sync::mpsc;
 
 use egui_file::FileDialog;
 use egui_toast::{
