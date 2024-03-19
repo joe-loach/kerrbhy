@@ -6,7 +6,7 @@ version.workspace = true
 
 [dependencies]
 wgpu = { workspace = true }
-wgpu-profiler = { workspace = true }
 winit = { workspace = true }
 thiserror = { workspace = true }
+profiler = { path = "../profiler" }
 pollster = "0.3.0"

@@ -17,11 +17,11 @@ use crate::{
 
 pub enum Encoder<'a> {
     Wgpu(&'a mut wgpu::CommandEncoder),
-    Profiled(wgpu_profiler::Scope<'a, wgpu::CommandEncoder>),
+    Profiled(profiler::gpu::Scope<'a, wgpu::CommandEncoder>),
 }
 
-impl<'a> From<wgpu_profiler::Scope<'a, wgpu::CommandEncoder>> for Encoder<'a> {
-    fn from(value: wgpu_profiler::Scope<'a, wgpu::CommandEncoder>) -> Self {
+impl<'a> From<profiler::gpu::Scope<'a, wgpu::CommandEncoder>> for Encoder<'a> {
+    fn from(value: profiler::gpu::Scope<'a, wgpu::CommandEncoder>) -> Self {
         Encoder::Profiled(value)
     }
 }
@@ -34,7 +34,7 @@ impl<'a> From<&'a mut wgpu::CommandEncoder> for Encoder<'a> {
 
 impl<'a> Encoder<'a> {
     pub fn profiled(
-        profiler: &'a wgpu_profiler::GpuProfiler,
+        profiler: &'a profiler::gpu::GpuProfiler,
         enc: &'a mut wgpu::CommandEncoder,
         label: &str,
         device: &Device,

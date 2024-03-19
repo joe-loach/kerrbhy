@@ -5,7 +5,7 @@ use std::ops::{
 
 pub enum RenderPass<'a> {
     Wgpu(wgpu::RenderPass<'a>),
-    Profiled(wgpu_profiler::OwningScope<'a, wgpu::RenderPass<'a>>),
+    Profiled(profiler::gpu::OwningScope<'a, wgpu::RenderPass<'a>>),
 }
 
 impl<'a> Deref for RenderPass<'a> {
@@ -30,7 +30,7 @@ impl<'a> DerefMut for RenderPass<'a> {
 
 pub enum ComputePass<'a> {
     Wgpu(wgpu::ComputePass<'a>),
-    Profiled(wgpu_profiler::OwningScope<'a, wgpu::ComputePass<'a>>),
+    Profiled(profiler::gpu::OwningScope<'a, wgpu::ComputePass<'a>>),
 }
 
 impl<'a> Deref for ComputePass<'a> {

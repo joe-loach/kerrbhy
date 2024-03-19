@@ -1,0 +1,13 @@
+[package]
+name = "profiler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wgpu-profiler = "0.16"
+puffin = { workspace = true }
+profiling = { workspace = true }
+wgpu = { workspace = true }

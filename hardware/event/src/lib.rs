@@ -99,7 +99,7 @@ pub trait EventHandler<T = ()>: Sized {
 
     #[inline(always)]
     #[allow(unused_variables)]
-    fn frame_end(&mut self, queue: &Queue) {}
+    fn frame_end(&mut self, state: &State) {}
 }
 
 pub fn run<E, T>(
@@ -254,16 +254,19 @@ where
 
                         {
                             profiling::scope!("encoder::submit");
-
                             queue.submit(Some(encoder.finish()));
+                        }
+
+                        {
+                            profiling::scope!("frame::present");
                             frame.present();
                         }
 
-                        dirty = state.dirty;
-
                         profiling::finish_frame!();
 
-                        app.frame_end(state.queue);
+                        app.frame_end(&state);
+
+                        dirty = state.dirty;
                     }
                     _ => (),
                 }

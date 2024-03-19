@@ -2,7 +2,10 @@ mod gui;
 mod input;
 mod ui;
 
-use std::sync::mpsc;
+use std::{
+    collections::HashMap,
+    sync::mpsc,
+};
 
 use egui_file::FileDialog;
 use egui_toast::{
@@ -20,6 +23,7 @@ use graphics::{
 };
 use gui::GuiState;
 use hardware_renderer::*;
+use profiler::PuffinStream;
 use time::format_description::well_known::Rfc3339;
 use winit::{
     dpi::PhysicalSize,
@@ -38,6 +42,9 @@ struct App {
 
     file_dialog: Option<FileDialog>,
 
+    gpu_start: i64,
+    profiler_id_cache: profiler::IdCache,
+    profiler: profiler::gpu::GpuProfiler,
     show_profiler: bool,
 
     accumulate: bool,
@@ -71,6 +78,9 @@ impl App {
 
             file_dialog: None,
 
+            gpu_start: puffin::now_ns(),
+            profiler_id_cache: profiler::IdCache::new(),
+            profiler: profiler::gpu::GpuProfiler::new(Default::default()).unwrap(),
             show_profiler: false,
 
             accumulate: true,
@@ -189,6 +199,10 @@ impl EventHandler for App {
         let (width, height) = state.dimensions();
 
         let dt = state.timer().dt();
+        if self.keyboard.is_down(KeyCode::Space) {
+            eprintln!("cleared!");
+            self.profiler_id_cache.clear();
+        }
 
         // update the camera controls
         match self.config.camera {
@@ -229,16 +243,24 @@ impl EventHandler for App {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
     ) {
-        let encoder = &mut Encoder::from(encoder);
+        {
+            // let encoder = &mut Encoder::from(encoder);
+            let encoder =
+                &mut Encoder::profiled(&self.profiler, encoder, "render", &state.device());
 
-        // only compute more work when it's needed
-        if self.accumulate || self.renderer.must_render() {
-            self.renderer.compute(encoder);
+            // only compute more work when it's needed
+            if self.accumulate || self.renderer.must_render() {
+                self.renderer.compute(encoder);
+            }
+
+            self.fullscreen.draw(encoder, &self.renderer.view(), target);
+
+            self.gui.draw(state, encoder.inner(), target);
         }
 
-        self.fullscreen.draw(encoder, &self.renderer.view(), target);
+        self.profiler.resolve_queries(encoder);
 
-        self.gui.draw(state, encoder.inner(), target);
+        self.gpu_start = puffin::now_ns();
     }
 
     fn event(&mut self, state: &event::State, event: event::Event<()>) -> bool {
@@ -250,6 +272,16 @@ impl EventHandler for App {
         }
 
         consumed
+    }
+
+    fn frame_end(&mut self, state: &event::State) {
+        if self.profiler.end_frame().is_ok() {
+            let _ = self.profiler.send_to_puffin(
+                self.gpu_start,
+                state.queue().get_timestamp_period(),
+                Some(&mut self.profiler_id_cache),
+            );
+        }
     }
 }
 
