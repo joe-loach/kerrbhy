@@ -1,5 +1,6 @@
 //!include rng.wgsl
 //!include f32.wgsl
+//!include filter.wgsl
 
 const MAX_STEPS: u32 = 128u;
 const MAX_BOUNCES: u32 = 4u;
@@ -9,6 +10,7 @@ const SKYBOX_RADIUS: f32 = 3.6;
 
 // Features
 const DISK: u32 = 1u;
+const AA: u32 = 2u;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -195,7 +197,12 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     seed_rng(id.xy, dim.xy, pc.sample);
 
     let res = vec2<f32>(dim.xy);
-    let coord = vec2<f32>(id.xy);
+    var coord = vec2<f32>(id.xy);
+
+    if (has_feature(AA)) {
+        coord = aa_filter(coord);
+    }
+
     // calculate uv coordinates
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
     // switch y because wgpu uses strange texture coords

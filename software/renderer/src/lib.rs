@@ -1,4 +1,8 @@
-use std::f32::consts::FRAC_1_PI;
+use std::f32::consts::{
+    FRAC_1_PI,
+    PI,
+    TAU,
+};
 
 use common::{
     Config,
@@ -56,10 +60,20 @@ fn rand2() -> Vec2 {
     Vec2::new(rand(), rand())
 }
 
+fn udir2() -> Vec2 {
+    // https://mathworld.wolfram.com/DiskPointPicking.html
+    let u = rand();     // [0, 1]
+    let r = TAU * u;    // [0, 2pi] for trig
+    // convert to cartesian
+    let s = r.sin();
+    let c = r.cos();
+    Vec2::new(s, c)
+}
+
 fn udir3() -> Vec3 {
     // https://mathworld.wolfram.com/SpherePointPicking.html
     let uv = rand2();
-    let r = Vec2::new(std::f32::consts::TAU * uv.x, (2.0 * uv.y - 1.0).acos());
+    let r = Vec2::new(TAU * uv.x, (2.0 * uv.y - 1.0).acos());
     // convert from spherical to cartesian
     // https://uk.mathworks.com/help/symbolic/transform-spherical-coordinates-and-plot.html
     let s = sin(r);
@@ -151,6 +165,22 @@ fn blackbody_xyz(t: f32) -> Vec3 {
 
     // convert to XYZ
     Vec3::new(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y)
+}
+
+fn aa_filter(coord: Vec2) -> Vec2 {
+    const A: f32 = 0.35875;
+    const B: f32 = 0.48829;
+    const C: f32 = 0.14128;
+    const D: f32 = 0.01168;
+
+    // https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Harris_window
+    // Window functions:
+    // "Used to smoothly bring a sampled signal down to zero at the edges of the
+    // region"
+    let n = 0.5 * rand() + 0.5;
+    let w = A - B * (2.0 * PI * n).cos() + C * (4.0 * PI * n).cos() - D * (6.0 * PI * n).cos();
+
+    coord + (udir2() * 2.0 * w)
 }
 
 struct DiskInfo {
@@ -292,6 +322,12 @@ impl Renderer {
         let res = Vec2::new(self.buffer.width() as f32, self.buffer.height() as f32);
 
         self.buffer.par_for_each(|coord| {
+            let coord = if self.config.features.contains(Features::AA) {
+                aa_filter(coord)
+            } else {
+                coord
+            };
+
             let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
             uv.y = -uv.y;
 

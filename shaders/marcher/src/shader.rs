@@ -125,6 +125,19 @@ fn isNan(val: vec3<f32>) -> vec3<bool> {
 fn isInf(val: vec3<f32>) -> vec3<bool> {
     return (val != vec3<f32>(0.0) && val * 2.0 == val);
 }
+const A = 0.35875;
+const B = 0.48829;
+const C = 0.14128;
+const D = 0.01168;
+
+fn aa_filter(coord: vec2<f32>) -> vec2<f32> {
+    // https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Harris_window
+    // Window functions:
+    // "Used to smoothly bring a sampled signal down to zero at the edges of the region"
+    let n = 0.5 * rand() + 0.5;
+    let w = A - B * cos(2.0 * PI * n) + C * cos(4.0 * PI * n) - D * cos(6.0 * PI * n);
+    return coord + (udir2() * 2.0 * w);
+}
 
 const MAX_STEPS: u32 = 128u;
 const MAX_BOUNCES: u32 = 4u;
@@ -134,6 +147,7 @@ const SKYBOX_RADIUS: f32 = 3.6;
 
 // Features
 const DISK: u32 = 1u;
+const AA: u32 = 2u;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -320,7 +334,12 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     seed_rng(id.xy, dim.xy, pc.sample);
 
     let res = vec2<f32>(dim.xy);
-    let coord = vec2<f32>(id.xy);
+    var coord = vec2<f32>(id.xy);
+
+    if (has_feature(AA)) {
+        coord = aa_filter(coord);
+    }
+
     // calculate uv coordinates
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
     // switch y because wgpu uses strange texture coords
@@ -409,12 +428,17 @@ pub const PI: f32 = 3.1415927f32;
 pub const TAU: f32 = 6.2831855f32;
 pub const FRAC_1_PI: f32 = 0.31830987f32;
 pub const FRAC_1_2PI: f32 = 0.15915494f32;
+pub const A: f32 = 0.35875f32;
+pub const B: f32 = 0.48829f32;
+pub const C: f32 = 0.14128f32;
+pub const D: f32 = 0.01168f32;
 pub const MAX_STEPS: u32 = 128u32;
 pub const MAX_BOUNCES: u32 = 4u32;
 pub const DELTA: f32 = 0.05f32;
 pub const BLACKHOLE_RADIUS: f32 = 0.6f32;
 pub const SKYBOX_RADIUS: f32 = 3.6f32;
 pub const DISK: u32 = 1u32;
+pub const AA: u32 = 2u32;
 pub mod bind_groups {
     use graphics::wgpu;
 

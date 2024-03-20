@@ -27,7 +27,8 @@ bitflags::bitflags! {
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Features: u32 {
-        const DISK = 1;
+        const DISK = 0b01;
+        const AA = 0b10;
     }
 }
 
