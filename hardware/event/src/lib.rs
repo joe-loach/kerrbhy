@@ -113,12 +113,16 @@ where
     // build the graphics context
     // make sure that they have a window
     if !gfx.has_window() {
+        log::warn!("no window provided to graphics context, creating a default window");
+
         gfx = gfx.with_window(winit::window::WindowBuilder::new())
     }
 
+    log::info!("building graphics context");
     let ctx = gfx.build(Some(&event_loop))?;
 
-    // create the state
+    // create the app
+    log::info!("creating app");
     let mut app = (app)(&event_loop, &ctx);
 
     // Poll by default
@@ -146,6 +150,7 @@ where
     };
 
     surface.configure(&device, &config);
+    log::info!("configured surface with {:?}", &config);
 
     window.set_visible(true);
 
@@ -158,6 +163,7 @@ where
 
     event_loop.run(move |event, target| {
         if !running && !target.exiting() {
+            log::info!("exiting from event loop");
             target.exit();
             return;
         }
@@ -225,13 +231,18 @@ where
                                     Ok(frame) => frame,
                                     // if something went wrong again,
                                     // lets just hope and wait for another redraw
-                                    Err(_) => return,
+                                    Err(_) => {
+                                        log::error!("failed to get surface texture");
+                                        return;
+                                    }
                                 }
                             }
                             // failed to get surface in time, wait for another redraw request
                             Err(wgpu::SurfaceError::Timeout) => return,
                             // OOM, bad! Exit ASAP!
                             Err(wgpu::SurfaceError::OutOfMemory) => {
+                                log::error!("out of memory");
+
                                 target.exit();
                                 return;
                             }
@@ -292,6 +303,8 @@ fn reconfigure_surface(
     config: &mut SurfaceConfiguration,
     device: &wgpu::Device,
 ) {
+    log::info!("reconfiguring surface");
+
     let size = window.inner_size();
     // update the surface
     config.width = size.width.max(1);

@@ -9,3 +9,4 @@ graphics = { path = "../graphics" }
 winit = { workspace = true }
 thiserror = { workspace = true }
 profiling = { workspace = true }
+log = { workspace = true }

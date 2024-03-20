@@ -812,6 +812,7 @@ name = "event"
 version = "0.1.0"
 dependencies = [
  "graphics",
+ "log",
  "profiling",
  "thiserror",
  "winit",
