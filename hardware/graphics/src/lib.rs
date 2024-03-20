@@ -102,6 +102,8 @@ impl Context {
         });
 
         let (mut window, mut surface) = if let Some((event_loop, window)) = window_info {
+            log::info!("creating context with window");
+
             // create an invisible window
             let window = Arc::new(window.with_visible(false).build(event_loop)?);
             // and a surface to put a gfx context on
@@ -126,6 +128,8 @@ impl Context {
             let adapter_limits = adapter.limits();
 
             if !limits.check_limits(&adapter_limits) {
+                log::error!("requested limits aren't all supported by adapter");
+
                 return Err(Error::LimitsSurpassed);
             }
 

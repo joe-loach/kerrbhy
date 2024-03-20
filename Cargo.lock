@@ -1070,6 +1070,7 @@ dependencies = [
 name = "graphics"
 version = "0.1.0"
 dependencies = [
+ "log",
  "pollster",
  "profiler",
  "thiserror",

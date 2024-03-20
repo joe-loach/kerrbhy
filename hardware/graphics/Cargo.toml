@@ -10,3 +10,4 @@ winit = { workspace = true }
 thiserror = { workspace = true }
 profiler = { path = "../profiler" }
 pollster = "0.3.0"
+log = { workspace = true }
