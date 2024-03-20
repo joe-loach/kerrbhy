@@ -22,6 +22,6 @@ pub fn show(ui: &mut egui::Ui, cfg: &mut Config) {
 
         ui.label("Disk");
         ui.add(egui::Slider::new(&mut cfg.disk.radius, 0.0..=10.0).text("Radius"));
-        ui.add(egui::Slider::new(&mut cfg.disk.thickness, 0.0..=10.0).text("Thickness"));
+        ui.add(egui::Slider::new(&mut cfg.disk.thickness, 0.0..=4.0).logarithmic(true).text("Thickness"));
     });
 }
