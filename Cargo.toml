@@ -36,6 +36,7 @@ fastrand = "2.0"
 bytemuck = { version = "1.14", features = ["derive",] }
 glam = { version = "0.26", features = ["bytemuck", "serde"] }
 memoffset = "0.9.0"
+time = { version = "0.3", features = [ "formatting"] }
 
 [patch.crates-io]
 wgsl_to_wgpu = { path = "./wgsl_to_wgpu" }
