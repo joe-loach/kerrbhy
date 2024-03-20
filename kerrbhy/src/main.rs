@@ -1,18 +1,16 @@
-use std::{
-    path::PathBuf,
-    sync::{
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        Arc,
-    },
-};
+use std::path::PathBuf;
 
+use anyhow::Context as _;
 use clap::Parser;
 use common::Config;
-use eframe::egui;
-use graphics::wgpu;
+use graphics::{
+    wgpu,
+    Context,
+};
+use hardware_renderer::Renderer as HardwareRenderer;
+use profiler::PuffinStream as _;
+use software_renderer::Renderer as SoftwareRenderer;
+use time::format_description::well_known::Rfc3339;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 enum RendererKind {
@@ -21,8 +19,12 @@ enum RendererKind {
 }
 
 enum Renderer {
-    Hardware(hardware_renderer::Renderer, wgpu::CommandEncoder),
-    Software(software_renderer::Renderer),
+    Hardware {
+        renderer: HardwareRenderer,
+        profiler: profiler::gpu::GpuProfiler,
+        encoder: wgpu::CommandEncoder,
+    },
+    Software(SoftwareRenderer),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -36,183 +38,217 @@ struct Args {
     config: Option<PathBuf>,
 
     #[clap(long)]
+    save: bool,
+
+    #[clap(long)]
     flamegraph: bool,
 
     #[clap(short, long, value_delimiter = ',', num_args = 1..)]
     features: Option<Vec<String>>,
 }
 
-#[derive(Default)]
-struct State(Arc<StateInner>);
-
-impl Clone for State {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl std::ops::Deref for State {
-    type Target = StateInner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-struct StateInner {
-    pub started: AtomicBool,
-    pub finished: AtomicBool,
-}
-
-impl Default for StateInner {
-    fn default() -> Self {
-        Self {
-            started: AtomicBool::new(false),
-            finished: AtomicBool::new(false),
-        }
-    }
-}
-
-fn compute_and_save(args: &Args, state: State) -> anyhow::Result<()> {
-    let Args {
-        width,
-        height,
-        renderer,
-        ..
-    } = *args;
-
-    {
-        profiling::scope!("Waiting");
-
-        while !state.started.load(Ordering::Relaxed) {
-            // wait, but not for very long
-            std::hint::spin_loop()
-        }
-    }
+fn context() -> anyhow::Result<Context> {
+    profiling::scope!("Creating context");
 
     // create graphics context without a window
-    let ctx = {
-        profiling::scope!("Creating context");
+    let cb = graphics::ContextBuilder::new(
+        |adapter| adapter.features(),
+        wgpu::Limits::downlevel_defaults(),
+    );
 
-        let cb = graphics::ContextBuilder::new(
-            |adapter| adapter.features(),
-            wgpu::Limits::downlevel_defaults(),
-        );
+    Ok(cb.build::<()>(None)?)
+}
 
-        cb.build::<()>(None)?
+fn renderer(
+    ctx: &Context,
+    width: u32,
+    height: u32,
+    config: Config,
+    kind: RendererKind,
+) -> anyhow::Result<Renderer> {
+    profiling::scope!("renderer::new");
+
+    let renderer = match kind {
+        RendererKind::Hardware => {
+            let encoder = ctx.device().create_command_encoder(&Default::default());
+
+            let mut renderer = HardwareRenderer::new(ctx);
+            renderer.update(width, height, config);
+
+            let profiler = profiler::gpu::GpuProfiler::new(Default::default())?;
+
+            Renderer::Hardware {
+                renderer,
+                profiler,
+                encoder,
+            }
+        }
+        RendererKind::Software => {
+            Renderer::Software(SoftwareRenderer::new(width, height, config))
+        }
     };
+
+    Ok(renderer)
+}
+
+fn compute(args: &Args) -> anyhow::Result<()> {
+    let Args { width, height, .. } = *args;
 
     let config = if let Some(path) = args.config.as_ref() {
         Config::load_from_path(path)?
     } else {
+        log::warn!("using default config");
+
         Config::default()
     };
 
-    let mut renderer = match renderer {
-        RendererKind::Hardware => {
-            profiling::scope!("hardware::new");
+    let ctx = context()?;
 
-            let enc = ctx.device().create_command_encoder(&Default::default());
+    let mut renderer = renderer(&ctx, width, height, config, args.renderer)?;
 
-            let mut h = hardware_renderer::Renderer::new(&ctx);
-            h.update(width, height, config);
-            Renderer::Hardware(h, enc)
-        }
-        RendererKind::Software => {
-            profiling::scope!("software::new");
-
-            let s = software_renderer::Renderer::new(width, height, config);
-            Renderer::Software(s)
-        }
-    };
-
+    // compute the image
     match &mut renderer {
-        Renderer::Software(s) => s.compute(),
-        Renderer::Hardware(h, enc) => h.compute(enc),
+        Renderer::Hardware {
+            renderer,
+            profiler,
+            encoder,
+        } => {
+            {
+                let encoder = &mut graphics::Encoder::profiled(
+                    profiler,
+                    encoder,
+                    "hardware renderer",
+                    &ctx.device(),
+                );
+
+                renderer.compute(encoder);
+            }
+
+            profiler.resolve_queries(encoder);
+        }
+        Renderer::Software(renderer) => renderer.compute(),
     }
 
-    let bytes = match renderer {
-        Renderer::Software(s) => s.into_frame(),
-        Renderer::Hardware(h, enc) => h.into_frame(enc),
-    };
+    match renderer {
+        Renderer::Hardware {
+            renderer,
+            mut profiler,
+            encoder,
+        } => {
+            let queue = ctx.queue();
 
-    {
-        profiling::scope!("Saving image");
+            let gpu_start = puffin::now_ns();
 
-        image::save_buffer("out.png", &bytes, width, height, image::ColorType::Rgba8)?;
+            // submit the commands to finish the work
+            queue.submit(Some(encoder.finish()));
+
+            if args.flamegraph {
+                // record the GPU debug info for the flamegraph
+
+                profiler.end_frame()?;
+
+                ctx.device().poll(wgpu::Maintain::Wait).panic_on_timeout();
+
+                match profiler.send_to_puffin(gpu_start, queue.get_timestamp_period(), None) {
+                    profiler::StreamResult::Success => (),
+                    profiler::StreamResult::Empty => (),
+                    profiler::StreamResult::Disabled => log::warn!("puffin is disabled"),
+                    profiler::StreamResult::Failure => log::error!("failed to send puffin data"),
+                }
+            }
+
+            if args.save {
+                let frame_encoder = ctx.device().create_command_encoder(&Default::default());
+                let bytes = renderer.into_frame(frame_encoder);
+                save_image(&bytes, width, height)?;
+            }
+        }
+        Renderer::Software(renderer) => {
+            if args.save {
+                let bytes = renderer.into_frame();
+                save_image(&bytes, width, height)?;
+            }
+        }
     }
 
     profiling::finish_frame!();
 
-    state.finished.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+fn save_image(bytes: &[u8], width: u32, height: u32) -> anyhow::Result<()> {
+    profiling::scope!("Saving image");
+
+    image::save_buffer("out.png", bytes, width, height, image::ColorType::Rgba8)?;
 
     Ok(())
 }
 
-fn show_flamegraph(state: State, mut profiler: puffin_egui::GlobalProfilerUi) {
-    let mut started = false;
-    let mut finished = false;
+fn init_logger() -> Result<(), fern::InitError> {
+    const LOG_LEVEL_ENV: &str = "KERRBHY_LOG";
 
-    eframe::run_simple_native(
-        "flamegraph",
-        eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size([800.0, 800.0])
-                .with_min_inner_size([600.0, 600.0]),
-            vsync: true,
-            ..Default::default()
-        },
-        move |ctx, _frame| {
-            egui::CentralPanel::default().show(ctx, |ui| profiler.ui(ui));
+    // try and get the log level and parse it from ENV
+    let level = std::env::var(LOG_LEVEL_ENV)
+        .ok()
+        .and_then(|level| level.parse::<log::LevelFilter>().ok())
+        .unwrap_or({
+            // choose specific defaults if not in release
+            if cfg!(debug_assertions) {
+                log::LevelFilter::Warn
+            } else {
+                log::LevelFilter::Error
+            }
+        });
 
-            if !started {
-                state.started.store(true, Ordering::Relaxed);
-                started = true;
-            }
-            if !finished {
-                finished = state.finished.load(Ordering::Relaxed);
-                ctx.request_repaint()
-            }
-        },
-    )
-    .expect("failed to setup graphics");
+    fern::Dispatch::new()
+        .level(level)
+        // output to std-error with as much info as possible
+        .chain(
+            fern::Dispatch::new()
+                .format(|out, message, record| {
+                    out.finish(format_args!(
+                        "[{} {} {}] {}",
+                        time::OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
+                        record.level(),
+                        record.target(),
+                        message
+                    ))
+                })
+                .chain(std::io::stderr()),
+        )
+        .apply()?;
+
+    Ok(())
 }
-
-const COMPUTE_THREAD: &str = "compute";
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let profiler = if args.flamegraph {
+    init_logger()?;
+
+    let bundle = if args.flamegraph {
         puffin::set_scopes_on(true);
 
-        let mut profiler = puffin_egui::GlobalProfilerUi::default();
-        profiler.profiler_ui.flamegraph_options.rounding = 0.0;
-        profiler.profiler_ui.flamegraph_options.merge_scopes = true;
+        let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
 
-        Some(profiler)
+        let server = puffin_http::Server::new(&server_addr)?;
+
+        let viewer = std::process::Command::new("puffin_viewer")
+            .spawn()
+            .context("puffin_viewer has to be installed to see flamegraph")?;
+
+        Some((viewer, server))
     } else {
         None
     };
 
-    let state = State::default();
+    compute(&args)?;
 
-    std::thread::scope(|s| -> anyhow::Result<()> {
-        let state_clone = state.clone();
+    if let Some((mut viewer, server)) = bundle {
+        viewer.wait()?;
 
-        let compute = std::thread::Builder::new()
-            .name(COMPUTE_THREAD.to_owned())
-            .spawn_scoped(s, || compute_and_save(&args, state_clone))?;
-
-        if let Some(profiler) = profiler {
-            show_flamegraph(state.clone(), profiler);
-        } else {
-            state.started.store(true, Ordering::Relaxed);
-            let _ = compute.join();
-        }
-
-        Ok(())
-    })?;
+        drop(server);
+    }
 
     Ok(())
 }
