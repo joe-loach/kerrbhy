@@ -10,9 +10,10 @@ const SKYBOX_RADIUS: f32 = 3.6;
 
 // Features
 const DISK: u32 = 1u;
-const AA: u32 = 2u;
-const RK4: u32 = 4u;
-const ADAPTIVE_RK4: u32 = 8u;
+const AA: u32 = 1u << 1;
+const RK4: u32 = 1u << 2;
+const ADAPTIVE_RK4: u32 = 1u << 3;
+const BLOOM: u32 = 1u << 4;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -105,9 +106,9 @@ fn euler(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
 fn rk4(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
     // calculate coefficients
     let k1 = ode(s);
-    let k2 = ode(s + 0.5*h*k1);
-    let k3 = ode(s + 0.5*h*k2);
-    let k4 = ode(s +     h*k3);
+    let k2 = ode(s + 0.5 * h * k1);
+    let k3 = ode(s + 0.5 * h * k2);
+    let k4 = ode(s + h * k3);
     // calculate timestep
     let step = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
 
@@ -261,6 +262,15 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
     // switch y because wgpu uses strange texture coords
     uv.y = -uv.y;
+
+    if has_feature(BLOOM) {
+        let r = rand();
+        if r < 0.10 {
+            uv = nrand2(uv, rand() * 0.015);
+        } else if r > 0.90 {
+            uv = nrand2(uv, rand() * 0.200);
+        }
+    }
 
     let ro = (vec4<f32>(pc.origin, 0.0) * pc.transform).xyz;
     let rd = normalize((vec4<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0, 0.0) * pc.transform).xyz);

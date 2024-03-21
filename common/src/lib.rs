@@ -31,6 +31,7 @@ bitflags::bitflags! {
         const AA = 1 << 1;
         const RK4 = 1 << 2;
         const ADAPTIVE_RK4 = 1 << 3;
+        const BLOOM = 1 << 4;
     }
 }
 

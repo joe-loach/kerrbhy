@@ -86,6 +86,15 @@ fn udir3() -> Vec3 {
     Vec3::new(c.x * s.y, s.x * s.y, c.y)
 }
 
+// 2D gaussian normal random value
+fn nrand2(mean: Vec2, sigma: f32) -> Vec2 {
+    let z = rand2();
+    // https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+    let g = (-2.0 * z.x.log10()).sqrt() * Vec2::new((TAU * z.y).cos(), (TAU * z.y).sin());
+
+    mean + sigma * g
+}
+
 fn rotate(v: Vec2, theta: f32) -> Vec2 {
     let s = theta.sin();
     let c = theta.cos();
@@ -374,7 +383,16 @@ impl Renderer {
                 coord
             };
 
-            let uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
+            let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
+
+            if self.config.features.contains(Features::BLOOM) {
+                let r = rand();
+                if r < 0.10 {
+                    uv = nrand2(uv, rand() * 0.015);
+                } else if r > 0.90 {
+                    uv = nrand2(uv, rand() * 0.200);
+                }
+            }
 
             let ro = view.transform_vector3(origin);
             let rd = view

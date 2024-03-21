@@ -64,6 +64,14 @@ fn udir3() -> vec3<f32> {
     return vec3<f32>(c.x * s.y, s.x * s.y, c.y);
 }
 
+// 2D gaussian normal random value
+fn nrand2(mean: vec2<f32>, sigma: f32) -> vec2<f32> {
+    let z = rand2();
+    // https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+    let g = sqrt(-2.0 * log(z.x)) * vec2(cos(TAU * z.y), sin(TAU * z.y));
+    return mean + sigma * g;
+}
+
 fn mod289(x: vec4f) -> vec4f { return x - floor(x * (1. / 289.)) * 289.; }
 fn perm4(x: vec4f) -> vec4f { return mod289(((x * 34.) + 1.) * x); }
 
@@ -89,15 +97,13 @@ fn noise3(p: vec3f) -> f32 {
     return o4.y * d.y + o4.x * (1. - d.y);
 }
 
-fn fbm(p: vec3f, iter: u32) -> f32
-{
+fn fbm(p: vec3f, iter: u32) -> f32 {
     var value = 0.0;
     var accum = 0.0;
     var atten = 0.5;
     var scale = 1.0;
 
-    for(var i = 0u; i < iter; i++)
-    {
+    for (var i = 0u; i < iter; i++) {
         value += atten * noise3(scale * p);
         accum += atten;
         atten *= 0.5;
