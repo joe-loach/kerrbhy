@@ -2,10 +2,7 @@ mod angle;
 pub mod camera;
 mod error;
 
-use std::{
-    path::Path,
-    str::FromStr,
-};
+use std::path::Path;
 
 pub use angle::{
     Degree,
@@ -32,18 +29,7 @@ bitflags::bitflags! {
         const RK4 = 1 << 2;
         const ADAPTIVE_RK4 = 1 << 3;
         const BLOOM = 1 << 4;
-    }
-}
-
-impl FromStr for Features {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let kind = match s.to_lowercase().as_str() {
-            "disk" => Features::DISK,
-            _ => return Err("invalid feature"),
-        };
-        Ok(kind)
+        const SKY_PROC = 1 << 5;
     }
 }
 
