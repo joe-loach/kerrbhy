@@ -63,6 +63,11 @@ impl App {
         gui.context().style_mut(|style| {
             style.visuals.window_shadow = egui::epaint::Shadow::NONE;
             style.visuals.window_rounding = egui::Rounding::ZERO;
+            style.visuals.widgets.active.rounding = egui::Rounding::ZERO;
+            style.visuals.widgets.open.rounding = egui::Rounding::ZERO;
+            style.visuals.widgets.inactive.rounding = egui::Rounding::ZERO;
+            style.visuals.widgets.hovered.rounding = egui::Rounding::ZERO;
+            style.visuals.widgets.noninteractive.rounding = egui::Rounding::ZERO;
         });
 
         Self {
@@ -136,8 +141,11 @@ impl App {
             .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             .show(&ctx, |ui| {
                 ui.collapsing("Settings", |ui| {
-                    ui.checkbox(&mut vsync, "vsync");
-                    ui.checkbox(&mut self.accumulate, "accumulate");
+                    ui.group(|ui| {
+                        ui.strong("Renderer");
+                        ui.checkbox(&mut vsync, "vsync");
+                        ui.checkbox(&mut self.accumulate, "accumulate");
+                    });
 
                     ui::config::show(ui, &mut self.config);
                 });
