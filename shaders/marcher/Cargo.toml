@@ -9,7 +9,6 @@ common = { path = "../../common" }
 graphics = { path = "../../hardware/graphics" }
 event = { path = "../../hardware/event" }
 
-memoffset = { workspace = true }
 bytemuck = { workspace = true }
 
 image = { workspace = true }

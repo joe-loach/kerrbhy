@@ -389,39 +389,39 @@ const _: () = assert!(
     "size of PushConstants does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, origin) == 0,
+    core::mem::offset_of!(PushConstants, origin) == 0,
     "offset of PushConstants.origin does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, fov) == 12,
+    core::mem::offset_of!(PushConstants, fov) == 12,
     "offset of PushConstants.fov does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, disk_color) == 16,
+    core::mem::offset_of!(PushConstants, disk_color) == 16,
     "offset of PushConstants.disk_color does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, disk_radius) == 28,
+    core::mem::offset_of!(PushConstants, disk_radius) == 28,
     "offset of PushConstants.disk_radius does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, disk_thickness) == 32,
+    core::mem::offset_of!(PushConstants, disk_thickness) == 32,
     "offset of PushConstants.disk_thickness does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, sample) == 36,
+    core::mem::offset_of!(PushConstants, sample) == 36,
     "offset of PushConstants.sample does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, features) == 40,
+    core::mem::offset_of!(PushConstants, features) == 40,
     "offset of PushConstants.features does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, pad) == 44,
+    core::mem::offset_of!(PushConstants, pad) == 44,
     "offset of PushConstants.pad does not match WGSL"
 );
 const _: () = assert!(
-    memoffset::offset_of!(PushConstants, transform) == 48,
+    core::mem::offset_of!(PushConstants, transform) == 48,
     "offset of PushConstants.transform does not match WGSL"
 );
 pub const PI: f32 = 3.1415927f32;
