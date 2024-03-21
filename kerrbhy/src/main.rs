@@ -42,9 +42,6 @@ struct Args {
 
     #[clap(long)]
     flamegraph: bool,
-
-    #[clap(short, long, value_delimiter = ',', num_args = 1..)]
-    features: Option<Vec<String>>,
 }
 
 fn context() -> anyhow::Result<Context> {
@@ -83,9 +80,7 @@ fn renderer(
                 encoder,
             }
         }
-        RendererKind::Software => {
-            Renderer::Software(SoftwareRenderer::new(width, height, config))
-        }
+        RendererKind::Software => Renderer::Software(SoftwareRenderer::new(width, height, config)),
     };
 
     Ok(renderer)
