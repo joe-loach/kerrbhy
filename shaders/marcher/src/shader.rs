@@ -149,6 +149,7 @@ const SKYBOX_RADIUS: f32 = 3.6;
 const DISK: u32 = 1u;
 const AA: u32 = 2u;
 const RK4: u32 = 4u;
+const ADAPTIVE_RK4: u32 = 8u;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -493,6 +494,7 @@ pub const SKYBOX_RADIUS: f32 = 3.6f32;
 pub const DISK: u32 = 1u32;
 pub const AA: u32 = 2u32;
 pub const RK4: u32 = 4u32;
+pub const ADAPTIVE_RK4: u32 = 8u32;
 pub const H_MIN: f32 = 0.000001f32;
 pub const H_MAX: f32 = 0.1f32;
 pub const ERR_GOAL: f32 = 0.0001f32;
