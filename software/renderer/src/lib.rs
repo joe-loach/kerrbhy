@@ -9,6 +9,7 @@ use common::{
     Features,
 };
 use glam::{
+    mat3,
     Mat3,
     Vec2,
     Vec3,
@@ -40,6 +41,10 @@ const SKYBOX_RADIUS: f32 = 3.6;
 
 const FRAC_1_2PI: f32 = FRAC_1_PI * 0.5;
 
+fn mat2x3(x: Vec3, y: Vec3) -> Mat3 {
+    mat3(x, y, Vec3::ZERO)
+}
+
 fn reflect(i: Vec3, n: Vec3) -> Vec3 {
     i - 2.0 * n.dot(i) * n
 }
@@ -62,9 +67,9 @@ fn rand2() -> Vec2 {
 
 fn udir2() -> Vec2 {
     // https://mathworld.wolfram.com/DiskPointPicking.html
-    let u = rand();     // [0, 1]
-    let r = TAU * u;    // [0, 2pi] for trig
-    // convert to cartesian
+    let u = rand(); // [0, 1]
+    let r = TAU * u; // [0, 2pi] for trig
+                     // convert to cartesian
     let s = r.sin();
     let c = r.cos();
     Vec2::new(s, c)
@@ -241,6 +246,38 @@ fn gravitational_field(p: Vec3) -> Vec3 {
     -6.0 * r / (rn * rn * rn * rn * rn)
 }
 
+/// s: state (position, velocity)
+fn ode(s: Mat3) -> Mat3 {
+    let p = s.x_axis;
+    let v = s.y_axis;
+    let a = gravitational_field(p);
+
+    mat2x3(v, a)
+}
+
+/// Simpler Euler integration
+/// s: state (position, velocity)
+/// h: time step
+/// returns: (delta position, delta velocity)
+fn euler(s: Mat3, h: f32) -> Mat3 {
+    ode(s) * h
+}
+
+/// Runge–Kutta (order 4)
+/// s: state (position, velocity)
+/// h: time step
+/// returns: (delta position, delta velocity)
+fn rk4(s: Mat3, h: f32) -> Mat3 {
+    // calculate coefficients
+    let k1 = ode(s);
+    let k2 = ode(s + 0.5 * h * k1);
+    let k3 = ode(s + 0.5 * h * k2);
+    let k4 = ode(s + h * k3);
+
+    // calculate timestep
+    h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4)
+}
+
 #[profiling::function]
 fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
     let mut attenuation = Vec3::ONE;
@@ -250,6 +287,8 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
     let mut v = rd;
 
     let mut bounces = 0_u32;
+    // let t = 0.0;
+    let h = DELTA;
 
     for _ in 0..MAX_STEPS {
         if bounces > MAX_BOUNCES {
@@ -284,10 +323,17 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
             }
         }
 
-        // TODO: use RK4
-        let g = gravitational_field(p);
-        v += g * DELTA;
-        p += v * DELTA;
+        let s = mat2x3(p, v);
+
+        let step = if config.features.contains(Features::RK4) {
+            rk4(s, h)
+        } else {
+            euler(s, h)
+        };
+
+        // update system
+        p += step.x_axis;
+        v += step.y_axis;
     }
 
     r += attenuation * sky(sampler, stars, v.normalize());
@@ -328,8 +374,7 @@ impl Renderer {
                 coord
             };
 
-            let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
-            uv.y = -uv.y;
+            let uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
 
             let ro = view.transform_vector3(origin);
             let rd = view
