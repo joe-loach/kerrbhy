@@ -262,9 +262,6 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     // switch y because wgpu uses strange texture coords
     uv.y = -uv.y;
 
-    // TODO: add AA filtering to the uv
-    // https://en.wikipedia.org/wiki/Spatial_anti-aliasing
-
     let ro = (vec4<f32>(pc.origin, 0.0) * pc.transform).xyz;
     let rd = normalize((vec4<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0, 0.0) * pc.transform).xyz);
 
