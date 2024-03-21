@@ -3,7 +3,7 @@ name = "kerrbhy"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
-
+rust-version = "1.77"
 
 [dependencies]
 common = { path = "../common" }
@@ -11,7 +11,7 @@ hardware-renderer = { path = "../hardware/renderer" }
 software-renderer = { path = "../software/renderer" }
 
 graphics = { path = "../hardware/graphics" }
-profiler = { path = "../hardware/profiler"}
+profiler = { path = "../hardware/profiler" }
 
 log = { workspace = true }
 fern = { workspace = true }

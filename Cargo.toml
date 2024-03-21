@@ -1,7 +1,6 @@
 [workspace]
 members = ["shaders/*", "hardware/*", "software/*", "kerrbhy", "sim", "common"]
 resolver = "2"
-rust-version = "1.77"
 
 [workspace.package]
 version = "0.1.0"
