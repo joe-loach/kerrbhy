@@ -2,7 +2,10 @@ mod preprocess;
 
 use std::{
     fmt::Write,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 use regex::{
@@ -100,8 +103,25 @@ pub fn build_shader(file: impl AsRef<Path>) -> Result<(), Error> {
     // add the rest of the module
     text += &module;
 
+    // figure out the name of the file
+    let code_path = path.with_extension("rs");
+    let code_file = code_path.file_name().expect("path is a file");
+
+    // find the output directory
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
+
+    // create the path to the output file
+    // OUT/CRATE/shader.rs
+    let mut out_file = PathBuf::from(out_dir);
+    out_file.push(crate_name);
+
+    std::fs::create_dir_all(&out_file).expect("failed to create output for wgsl");
+
+    out_file.push(code_file);
+
     // write out the file
-    let out_file = path.with_extension("rs");
+    println!("{}", out_file.display());
     std::fs::write(out_file, text.as_bytes()).expect("failed to write WGSL shader module code");
 
     Ok(())
