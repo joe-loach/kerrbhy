@@ -9,11 +9,13 @@ const BLACKHOLE_RADIUS: f32 = 0.6;
 const SKYBOX_RADIUS: f32 = 3.6;
 
 // Features
-const DISK: u32 = 1u;
-const AA: u32 = 1u << 1;
-const RK4: u32 = 1u << 2;
-const ADAPTIVE_RK4: u32 = 1u << 3;
-const BLOOM: u32 = 1u << 4;
+const DISK_SDF      = 1u << 0;
+const DISK_VOL      = 1u << 1;
+const SKY_PROC      = 1u << 2;
+const AA            = 1u << 3;
+const RK4           = 1u << 4;
+const ADAPTIVE_RK4  = 1u << 5;
+const BLOOM         = 1u << 6;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -126,7 +128,7 @@ struct DiskInfo {
     distance: f32,
 }
 
-fn disk(p: vec3<f32>) -> DiskInfo {
+fn diskVolume(p: vec3<f32>) -> DiskInfo {
     var ret: DiskInfo;
     ret.emission = vec3<f32>(0.0);
     ret.distance = 0.0;
@@ -158,6 +160,12 @@ fn disk(p: vec3<f32>) -> DiskInfo {
     ret.distance = 128.0 * max(n0 - d_falloff, 0.0);
 
     return ret;
+}
+
+// https://www.shadertoy.com/view/wdXGDr
+fn diskSdf(p: vec3<f32>, h: f32, r: f32) -> f32 {
+    let d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
+    return min(max(d.x,d.y),0.0) + length(max(d, vec2<f32>(0.0)));
 }
 
 fn sky(rd: vec3<f32>) -> vec3<f32> {
@@ -198,8 +206,8 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
             break;
         }
 
-        if has_feature(DISK) {
-            let sample = disk(p);
+        if has_feature(DISK_VOL) {
+            let sample = diskVolume(p);
             r += attenuation * sample.emission * DELTA;
 
             if sample.distance > 0.0 {
@@ -214,6 +222,13 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
 
                     bounces++;
                 }
+            }
+        } else if has_feature(DISK_SDF) {
+            let dist = diskSdf(p, pc.disk_thickness, sqrt(pc.disk_radius));
+
+            if dist <= 0.0 {
+                // hit the disk
+                return pc.disk_color;
             }
         }
 
@@ -234,7 +249,10 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         v += step.y;
     }
 
-    r += attenuation * sky(normalize(v));
+    if has_feature(SKY_PROC) {
+    } else {
+        r += attenuation * sky(normalize(v));
+    }
 
     return r;
 }

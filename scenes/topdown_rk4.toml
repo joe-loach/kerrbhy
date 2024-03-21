@@ -1,5 +1,5 @@
 samples = 1
-features = "DISK | RK4"
+features = "DISK_VOL | RK4"
 
 [camera.Orbit]
 fov = 1.2217304706573486

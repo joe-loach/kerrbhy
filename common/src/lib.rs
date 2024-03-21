@@ -24,12 +24,13 @@ bitflags::bitflags! {
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Features: u32 {
-        const DISK = 1;
-        const AA = 1 << 1;
-        const RK4 = 1 << 2;
-        const ADAPTIVE_RK4 = 1 << 3;
-        const BLOOM = 1 << 4;
-        const SKY_PROC = 1 << 5;
+        const DISK_SDF      = 1 << 0;
+        const DISK_VOL      = 1 << 1;
+        const SKY_PROC      = 1 << 2;
+        const AA            = 1 << 3;
+        const RK4           = 1 << 4;
+        const ADAPTIVE_RK4  = 1 << 5;
+        const BLOOM         = 1 << 6;
     }
 }
 
@@ -69,7 +70,7 @@ impl Default for Disk {
     fn default() -> Self {
         Self {
             radius: 8.0,
-            thickness: 3.0,
+            thickness: 0.1,
             color: vec3(0.3, 0.2, 0.1),
         }
     }

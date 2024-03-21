@@ -204,7 +204,7 @@ struct DiskInfo {
     distance: f32,
 }
 
-fn disk(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
+fn disk_volume(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
     if p.xz().length_squared() > radius || p.y * p.y > thickness {
         return DiskInfo {
             emission: Vec3::ZERO,
@@ -234,6 +234,12 @@ fn disk(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
         emission: e,
         distance: 128.0 * (n0 - d_falloff).max(0.0),
     }
+}
+
+// https://www.shadertoy.com/view/wdXGDr
+fn disk_sdf(p: Vec3, h: f32, r: f32) -> f32 {
+    let d = Vec2::new(p.xz().length(), p.y).abs() - Vec2::new(r, h);
+    d.x.clamp(d.y, 0.0) + d.max(Vec2::ZERO).length()
 }
 
 fn sky(sampler: Sampler, stars: &Texture2D, rd: Vec3) -> Vec3 {
@@ -313,8 +319,8 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
             break;
         }
 
-        if config.features.contains(Features::DISK) {
-            let sample = disk(p, config.disk.radius, config.disk.thickness);
+        if config.features.contains(Features::DISK_VOL) {
+            let sample = disk_volume(p, config.disk.radius, config.disk.thickness);
             r += attenuation * sample.emission * DELTA;
 
             if sample.distance > 0.0 {
@@ -329,6 +335,13 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
 
                     bounces += 1;
                 }
+            }
+        } else if config.features.contains(Features::DISK_SDF) {
+            let dist = disk_sdf(p, config.disk.thickness, config.disk.radius.sqrt());
+
+            if dist <= 0.0 {
+                // hit the disc
+                return config.disk.color;
             }
         }
 
@@ -345,7 +358,10 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
         v += step.y_axis;
     }
 
-    r += attenuation * sky(sampler, stars, v.normalize());
+    if config.features.contains(Features::SKY_PROC) {
+    } else {
+        r += attenuation * sky(sampler, stars, v.normalize());
+    }
 
     r
 }
