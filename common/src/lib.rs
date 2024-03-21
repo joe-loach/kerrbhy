@@ -27,8 +27,10 @@ bitflags::bitflags! {
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct Features: u32 {
-        const DISK = 0b01;
-        const AA = 0b10;
+        const DISK = 1;
+        const AA = 1 << 1;
+        const RK4 = 1 << 2;
+        const ADAPTIVE_RK4 = 1 << 3;
     }
 }
 

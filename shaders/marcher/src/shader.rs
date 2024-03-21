@@ -148,6 +148,7 @@ const SKYBOX_RADIUS: f32 = 3.6;
 // Features
 const DISK: u32 = 1u;
 const AA: u32 = 2u;
+const RK4: u32 = 4u;
 
 struct PushConstants {
     origin: vec3<f32>,
@@ -207,6 +208,52 @@ fn blackbodyXYZ(t: f32) -> vec3<f32> {
     return vec3(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y);
 }
 
+fn gravitational_field(p: vec3<f32>) -> vec3<f32> {
+    let r = p / BLACKHOLE_RADIUS;
+    let R = length(r);
+    return -6.0 * r / (R * R * R * R * R);
+}
+
+// ODE Integration methods
+// https://stackoverflow.com/questions/53645649/cannot-get-rk4-to-solve-for-position-of-orbiting-body-in-python/53650879#53650879
+
+// s: state (position, velocity)
+fn ode(s: mat2x3<f32>) -> mat2x3<f32> {
+    let p = s.x;
+    let v = s.y;
+    let a = gravitational_field(p);
+
+    return mat2x3(v, a);
+}
+
+// Simpler Euler integration
+// s: state (position, velocity)
+// h: time step
+// returns: (delta position, delta velocity)
+fn euler(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
+    return ode(s) * h;
+}
+
+// Runge–Kutta (order 4)
+// s: state (position, velocity)
+// h: time step
+// returns: (delta position, delta velocity)
+fn rk4(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
+    // calculate coefficients
+    let k1 = ode(s);
+    let k2 = ode(s + 0.5*h*k1);
+    let k3 = ode(s + 0.5*h*k2);
+    let k4 = ode(s +     h*k3);
+    // calculate timestep
+    let step = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+
+    return step;
+}
+
+const H_MIN: f32 = 1e-6;
+const H_MAX: f32 = 1e-1;
+const ERR_GOAL: f32 = 1e-4;
+
 struct DiskInfo {
     // strength of the emissive color
     emission: vec3<f32>,
@@ -261,12 +308,6 @@ fn sky(rd: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(stars, star_sampler, coord, 0.0).xyz;
 }
 
-fn gravitational_field(p: vec3<f32>) -> vec3<f32> {
-    let r = p / BLACKHOLE_RADIUS;
-    let R = length(r);
-    return -6.0 * r / (R * R * R * R * R);
-}
-
 fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
     var attenuation = vec3<f32>(1.0);
     var r = vec3<f32>(0.0);
@@ -275,6 +316,8 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
     var v = rd;
 
     var bounces = 0u;
+    var t = 0.0;
+    var h = DELTA;
 
     for (var i = 0u; i < MAX_STEPS; i++) {
         if bounces > MAX_BOUNCES {
@@ -309,11 +352,21 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
             }
         }
 
-        // TODO: use RK4
-        // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
-        let g = gravitational_field(p);
-        v += g * DELTA;
-        p += v * DELTA;
+        // create state
+        let s = mat2x3(p, v);
+
+        // integrate
+        var step = mat2x3f();
+
+        if has_feature(RK4) {
+            step = rk4(s, h);
+        } else {
+            step = euler(s, h);
+        }
+
+        // update system
+        p += step.x;
+        v += step.y;
     }
 
     r += attenuation * sky(normalize(v));
@@ -336,7 +389,7 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     let res = vec2<f32>(dim.xy);
     var coord = vec2<f32>(id.xy);
 
-    if (has_feature(AA)) {
+    if has_feature(AA) {
         coord = aa_filter(coord);
     }
 
@@ -439,6 +492,10 @@ pub const BLACKHOLE_RADIUS: f32 = 0.6f32;
 pub const SKYBOX_RADIUS: f32 = 3.6f32;
 pub const DISK: u32 = 1u32;
 pub const AA: u32 = 2u32;
+pub const RK4: u32 = 4u32;
+pub const H_MIN: f32 = 0.000001f32;
+pub const H_MAX: f32 = 0.1f32;
+pub const ERR_GOAL: f32 = 0.0001f32;
 pub mod bind_groups {
     use graphics::wgpu;
 
