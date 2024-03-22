@@ -248,9 +248,9 @@ fn init_logger() -> Result<(), fern::InitError> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-
     init_logger()?;
+
+    let args = Args::parse();
 
     let bundle = if args.flamegraph {
         puffin::set_scopes_on(true);
