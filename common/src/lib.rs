@@ -78,7 +78,6 @@ impl Default for Disk {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
-    pub samples: u32,
     pub features: Features,
     pub camera: Camera,
     pub disk: Disk,
@@ -109,7 +108,6 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            samples: 1,
             features: Features::empty(),
             camera: Camera::Orbit(OrbitCamera::new(
                 // 90 degree FOV

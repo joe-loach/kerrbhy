@@ -1,4 +1,3 @@
-samples = 1
 features = "ADAPTIVE"
 
 [camera.Orbit]

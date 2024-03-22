@@ -1,4 +1,3 @@
-samples = 1
 features = "DISK_VOL"
 
 [camera.Orbit]

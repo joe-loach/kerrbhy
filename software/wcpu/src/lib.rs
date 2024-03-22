@@ -1,5 +1,5 @@
 use glam::{
-    Vec2,
+    UVec2,
     Vec4,
 };
 use rayon::prelude::*;
@@ -30,9 +30,9 @@ impl FrameBuffer {
     }
 
     #[inline]
-    pub fn for_each(&mut self, f: impl Fn(Vec2) -> Vec4) {
+    pub fn for_each(&mut self, f: impl Fn(UVec2, Vec4) -> Vec4) {
         for (x, y, p) in self.buffer.enumerate_pixels_mut() {
-            let color = f(Vec2::new(x as f32, y as f32));
+            let color = f(UVec2::new(x, y), Vec4::from_array(p.0));
 
             *p = image::Rgba(color.to_array());
         }
@@ -40,12 +40,12 @@ impl FrameBuffer {
 
     #[profiling::function]
     #[inline]
-    pub fn par_for_each(&mut self, f: impl (Fn(Vec2) -> Vec4) + Sync) {
+    pub fn par_for_each(&mut self, f: impl (Fn(UVec2, Vec4) -> Vec4) + Sync) {
         self.buffer
             .enumerate_pixels_mut()
             .par_bridge()
             .for_each(|(x, y, p)| {
-                let color = f(Vec2::new(x as f32, y as f32));
+                let color = f(UVec2::new(x, y), Vec4::from_array(p.0));
 
                 *p = image::Rgba(color.to_array());
             });

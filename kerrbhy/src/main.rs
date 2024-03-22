@@ -8,7 +8,10 @@ use graphics::{
     Context,
 };
 use hardware_renderer::Renderer as HardwareRenderer;
-use profiler::PuffinStream as _;
+use profiler::{
+    gpu::GpuProfiler,
+    PuffinStream as _,
+};
 use software_renderer::Renderer as SoftwareRenderer;
 use time::format_description::well_known::Rfc3339;
 
@@ -21,8 +24,7 @@ enum RendererKind {
 enum Renderer {
     Hardware {
         renderer: HardwareRenderer,
-        profiler: profiler::gpu::GpuProfiler,
-        encoder: wgpu::CommandEncoder,
+        profiler: Option<GpuProfiler>,
     },
     Software(SoftwareRenderer),
 }
@@ -33,6 +35,9 @@ struct Args {
 
     width: u32,
     height: u32,
+
+    #[clap(short, long, default_value = "1", value_parser=clap::value_parser!(u32).range(1..),)]
+    samples: u32,
 
     #[clap(short, long)]
     config: Option<PathBuf>,
@@ -56,38 +61,101 @@ fn context() -> anyhow::Result<Context> {
     Ok(cb.build::<()>(None)?)
 }
 
-fn renderer(
-    ctx: &Context,
-    width: u32,
-    height: u32,
-    config: Config,
-    kind: RendererKind,
-) -> anyhow::Result<Renderer> {
+fn renderer(ctx: &Context, config: Config, args: &Args) -> anyhow::Result<Renderer> {
     profiling::scope!("renderer::new");
 
-    let renderer = match kind {
+    let renderer = match args.renderer {
         RendererKind::Hardware => {
-            let encoder = ctx.device().create_command_encoder(&Default::default());
-
             let mut renderer = HardwareRenderer::new(ctx);
-            renderer.update(width, height, config);
+            renderer.update(args.width, args.height, config);
 
-            let profiler = profiler::gpu::GpuProfiler::new(Default::default())?;
+            let profiler = if args.flamegraph {
+                Some(GpuProfiler::new(Default::default())?)
+            } else {
+                None
+            };
 
-            Renderer::Hardware {
-                renderer,
-                profiler,
-                encoder,
-            }
+            Renderer::Hardware { renderer, profiler }
         }
-        RendererKind::Software => Renderer::Software(SoftwareRenderer::new(width, height, config)),
+        RendererKind::Software => {
+            Renderer::Software(SoftwareRenderer::new(args.width, args.height, config))
+        }
     };
 
     Ok(renderer)
 }
 
+fn hardware_frame(
+    renderer: &mut HardwareRenderer,
+    mut profiler: Option<&mut GpuProfiler>,
+    ctx: &Context,
+    sample: u32,
+) -> anyhow::Result<()> {
+    let device = ctx.device();
+
+    let mut encoder = device.create_command_encoder(&Default::default());
+
+    {
+        let mut encoder = if let Some(ref profiler) = profiler {
+            graphics::Encoder::profiled(
+                profiler,
+                &mut encoder,
+                format!("sample #{sample}"),
+                &device,
+            )
+        } else {
+            graphics::Encoder::Wgpu(&mut encoder)
+        };
+
+        renderer.compute(&mut encoder);
+    }
+
+    if let Some(ref mut profiler) = profiler {
+        profiler.resolve_queries(&mut encoder);
+    }
+
+    let queue = ctx.queue();
+    let gpu_start = puffin::now_ns();
+
+    // submit the commands to finish the work
+    queue.submit(Some(encoder.finish()));
+
+    if let Some(ref mut profiler) = profiler {
+        // record the GPU debug info for the flamegraph
+
+        profiler.end_frame()?;
+
+        // wait for the wgpu to be finished to get debug data
+        device.poll(wgpu::Maintain::Wait).panic_on_timeout();
+
+        match profiler.send_to_puffin(gpu_start, queue.get_timestamp_period(), None) {
+            profiler::StreamResult::Success => (),
+            profiler::StreamResult::Empty => (),
+            profiler::StreamResult::Disabled => log::warn!("puffin is disabled"),
+            profiler::StreamResult::Failure => log::error!("failed to send puffin data"),
+        }
+    }
+
+    profiling::finish_frame!();
+
+    Ok(())
+}
+
+fn software_frame(renderer: &mut SoftwareRenderer, sample: u32) {
+    profiling::scope!("sample", format!("#{sample}"));
+
+    renderer.compute(sample);
+
+    profiling::finish_frame!();
+}
+
 fn compute(args: &Args) -> anyhow::Result<()> {
-    let Args { width, height, .. } = *args;
+    let Args {
+        width,
+        height,
+        samples,
+        ..
+    } = *args;
 
     let config = if let Some(path) = args.config.as_ref() {
         Config::load_from_path(path)?
@@ -99,59 +167,24 @@ fn compute(args: &Args) -> anyhow::Result<()> {
 
     let ctx = context()?;
 
-    let mut renderer = renderer(&ctx, width, height, config, args.renderer)?;
+    let mut renderer = renderer(&ctx, config, args)?;
 
     // compute the image
     match &mut renderer {
-        Renderer::Hardware {
-            renderer,
-            profiler,
-            encoder,
-        } => {
-            {
-                let encoder = &mut graphics::Encoder::profiled(
-                    profiler,
-                    encoder,
-                    "hardware renderer",
-                    &ctx.device(),
-                );
-
-                renderer.compute(encoder);
+        Renderer::Hardware { renderer, profiler } => {
+            for sample in 0..samples {
+                hardware_frame(renderer, profiler.as_mut(), &ctx, sample)?;
             }
-
-            profiler.resolve_queries(encoder);
         }
-        Renderer::Software(renderer) => renderer.compute(),
+        Renderer::Software(renderer) => {
+            for sample in 0..samples {
+                software_frame(renderer, sample);
+            }
+        }
     }
 
     match renderer {
-        Renderer::Hardware {
-            renderer,
-            mut profiler,
-            encoder,
-        } => {
-            let queue = ctx.queue();
-
-            let gpu_start = puffin::now_ns();
-
-            // submit the commands to finish the work
-            queue.submit(Some(encoder.finish()));
-
-            if args.flamegraph {
-                // record the GPU debug info for the flamegraph
-
-                profiler.end_frame()?;
-
-                ctx.device().poll(wgpu::Maintain::Wait).panic_on_timeout();
-
-                match profiler.send_to_puffin(gpu_start, queue.get_timestamp_period(), None) {
-                    profiler::StreamResult::Success => (),
-                    profiler::StreamResult::Empty => (),
-                    profiler::StreamResult::Disabled => log::warn!("puffin is disabled"),
-                    profiler::StreamResult::Failure => log::error!("failed to send puffin data"),
-                }
-            }
-
+        Renderer::Hardware { renderer, .. } => {
             if args.save {
                 let frame_encoder = ctx.device().create_command_encoder(&Default::default());
                 let bytes = renderer.into_frame(frame_encoder);
@@ -165,8 +198,6 @@ fn compute(args: &Args) -> anyhow::Result<()> {
             }
         }
     }
-
-    profiling::finish_frame!();
 
     Ok(())
 }

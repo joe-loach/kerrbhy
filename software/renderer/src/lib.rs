@@ -421,7 +421,6 @@ fn bogacki_shampine(s: Mat3, h: &mut f32) -> Mat3 {
     step
 }
 
-#[profiling::function]
 fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
     let mut h = DELTA;
 
@@ -516,8 +515,7 @@ impl Renderer {
         }
     }
 
-    #[profiling::function]
-    pub fn compute(&mut self) {
+    pub fn compute(&mut self, sample: u32) {
         let view = self.config.camera.view();
         let fov = self.config.camera.fov().as_f32();
 
@@ -528,7 +526,9 @@ impl Renderer {
         let view = self.config.camera.view().matrix3.transpose();
         let view = glam::Affine3A::from_mat3(view.into());
 
-        self.buffer.par_for_each(|coord| {
+        self.buffer.par_for_each(|id, old| {
+            let coord = id.as_vec2();
+
             let coord = if self.config.features.contains(Features::AA) {
                 aa_filter(coord)
             } else {
@@ -552,26 +552,22 @@ impl Renderer {
                 .transform_vector3((uv * 2.0 * fov * FRAC_1_PI).extend(-1.0))
                 .normalize();
 
-            let mut acc = Vec3::ZERO;
+            let color = render(ro, rd, self.sampler, &self.stars, &self.config);
 
-            for _ in 0..self.config.samples {
-                let col = render(ro, rd, self.sampler, &self.stars, &self.config);
-
-                let col = if col.cmplt(Vec3::ZERO).any() || !col.is_finite() || col.is_nan() {
-                    Vec3::ZERO
-                } else {
-                    col
-                };
-
-                acc += col;
-            }
-
-            let avg = acc / self.config.samples as f32;
+            let color = if color.cmplt(Vec3::ZERO).any() || !color.is_finite() || color.is_nan() {
+                Vec3::ZERO
+            } else {
+                color
+            };
 
             // gamma correction
-            let avg = avg.powf(0.45);
+            let color = color.powf(0.45);
 
-            avg.extend(1.0)
+            // add alpha (always 1)
+            let color = color.extend(1.0);
+
+            // accumulate the color in the buffer
+            old.lerp(color, 1.0 / (sample + 1) as f32)
         });
     }
 
