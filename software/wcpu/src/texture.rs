@@ -63,8 +63,23 @@ pub enum Filter {
 }
 
 #[derive(Clone, Copy)]
+pub enum EdgeMode {
+    Wrap,
+}
+
+impl EdgeMode {
+    pub fn apply2d(&self, tex: &Texture2D, x: u32, y: u32) -> (u32, u32) {
+        let size = tex.size();
+        match self {
+            EdgeMode::Wrap => (x % size.x, y % size.y),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Sampler {
     pub filter_mode: Filter,
+    pub edge_mode: EdgeMode,
 }
 
 pub trait Sample<const D: u32> {
@@ -95,13 +110,16 @@ impl Sample<2> for Sampler {
     type Point = Vec2;
 
     fn sample(&self, tex: &Texture<2>, uv: Self::Point) -> Vec4 {
-        let pos = uv * tex.size().as_vec2();
+        let size = tex.size();
+        let pos = uv * size.as_vec2();
 
         match self.filter_mode {
             Filter::Nearest => {
                 let Vec2 { x, y } = pos.round();
 
-                tex.get_checked(x as u32, y as u32).unwrap_or(Vec4::ZERO)
+                let (x, y) = self.edge_mode.apply2d(tex, x as u32, y as u32);
+
+                tex.get(x, y)
             }
             Filter::Linear => {
                 let Vec2 { x, y } = pos;
@@ -111,10 +129,17 @@ impl Sample<2> for Sampler {
                 let x2 = x.ceil();
                 let y2 = y.ceil();
 
-                let q11 = tex.get(x1 as u32, y1 as u32);
-                let q12 = tex.get(x1 as u32, y2 as u32);
-                let q21 = tex.get(x2 as u32, y1 as u32);
-                let q22 = tex.get(x2 as u32, y2 as u32);
+                let (q11, q12, q21, q22) = {
+                    let (x1, y1) = self.edge_mode.apply2d(tex, x1 as u32, y1 as u32);
+                    let (x2, y2) = self.edge_mode.apply2d(tex, x2 as u32, y2 as u32);
+
+                    (
+                        tex.get(x1, y1),
+                        tex.get(x1, y2),
+                        tex.get(x2, y1),
+                        tex.get(x2, y2),
+                    )
+                };
 
                 (q11 * (x2 - x) * (y2 - y)
                     + q21 * (x - x1) * (y2 - y)

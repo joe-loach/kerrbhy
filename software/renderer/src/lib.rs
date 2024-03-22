@@ -19,7 +19,7 @@ use glam::{
     Vec4Swizzles as _,
 };
 use wcpu::{
-    texture::Filter,
+    texture::{EdgeMode, Filter},
     FrameBuffer,
     Sample,
     Sampler,
@@ -501,7 +501,8 @@ impl Renderer {
     #[profiling::function]
     pub fn new(width: u32, height: u32, config: crate::Config) -> Self {
         let sampler = Sampler {
-            filter_mode: Filter::Nearest,
+            filter_mode: Filter::Linear,
+            edge_mode: EdgeMode::Wrap,
         };
         let stars =
             Texture2D::from_bytes(include_bytes!("../../../textures/starmap_2020_4k.exr")).unwrap();
