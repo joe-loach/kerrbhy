@@ -537,7 +537,6 @@ impl Renderer {
             };
 
             let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
-            uv.y = -uv.y;
 
             if self.config.features.contains(Features::BLOOM) {
                 let r = rand();

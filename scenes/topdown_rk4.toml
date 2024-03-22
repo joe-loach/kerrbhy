@@ -1,4 +1,4 @@
-features = "DISK_VOL | RK4"
+features = "RK4"
 
 [camera.Orbit]
 fov = 1.2217304706573486
@@ -8,7 +8,7 @@ target = [
     0.0,
     0.0,
 ]
-phi = 1.7457140684127808
+phi = 1.3209282159805298
 theta = 4.697805404663086
 
 [camera.Orbit.bounds]

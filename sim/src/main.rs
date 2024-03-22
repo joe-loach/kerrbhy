@@ -215,10 +215,10 @@ impl EventHandler for App {
                 let mut v = vec2(0.0, 0.0);
 
                 if self.keyboard.is_down(KeyCode::KeyW) {
-                    v.y += 1.0 * dt;
+                    v.y += -1.0 * dt;
                 }
                 if self.keyboard.is_down(KeyCode::KeyS) {
-                    v.y += -1.0 * dt;
+                    v.y += 1.0 * dt;
                 }
                 if self.keyboard.is_down(KeyCode::KeyA) {
                     v.x += 1.0 * dt;

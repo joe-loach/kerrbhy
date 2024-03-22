@@ -8,7 +8,7 @@ target = [
     0.0,
     0.0,
 ]
-phi = 1.6288330554962158
+phi = 1.3688881397247314
 theta = 0.0
 
 [camera.Orbit.bounds]
