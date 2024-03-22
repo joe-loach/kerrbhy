@@ -293,17 +293,58 @@ fn rk4(s: Mat3, h: f32) -> Mat3 {
     h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4)
 }
 
+/// Bogacki-Shampine method
+/// https://en.wikipedia.org/wiki/Bogacki%E2%80%93Shampine_method
+fn bogacki_shampine(s: Mat3, h: &mut f32) -> Mat3 {
+    const A: [f32; 3] = [2.0/9.0, 1.0/3.0, 4.0/9.0];
+    const B: [f32; 4] = [7.0/24.0, 1.0/4.0, 1.0/3.0, 1.0/8.0];
+
+    const H_MIN: f32 = 1e-8;
+    const H_MAX: f32 = 1e-1;
+    const ERR_TOLERANCE: f32 = 1e-5;
+
+    let h0 = *h;
+
+    // calculate coefficients
+    let k1 = ode(s);
+    let k2 = ode(s + 0.5 * h0 * k1);
+    let k3 = ode(s + 0.75 * h0 * k2);
+
+    // find step
+    let step = A[0] * h0 * k1 + A[1] * h0 * k2 + A[2] * h0 * k3;
+
+    // calculate next state
+    let k4 = ode(s + step);
+
+    // calculate better estimate using k4
+    let better = B[0] * h0 * k1 + B[1] * h0 * k2 + B[2] * h0 * k3 + B[3] * h0 * k4;
+
+    // compute the error
+    let err = better - step; // difference between the two guesses
+    let err = err.x_axis.max(err.y_axis).length(); // get the magnitude of the largest errors
+
+    // find the step change coefficient
+    let x = ERR_TOLERANCE * 0.5 / err;
+    let dstep = x.powf(0.5);
+
+    // update h and clamp within bounds
+    // https://en.wikipedia.org/wiki/Adaptive_step_size
+    (*h) = 0.9 * (h0 * dstep).clamp(H_MIN, H_MAX);
+
+    step
+}
+
 #[profiling::function]
 fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
+    let mut h = DELTA;
+
     let mut attenuation = Vec3::ONE;
     let mut r = Vec3::ZERO;
 
-    let mut p = ro + (rand() * DELTA * rd);
+    let mut p = ro + (rand() * h * rd);
     let mut v = rd;
 
     let mut bounces = 0_u32;
-    // let t = 0.0;
-    let h = DELTA;
 
     for _ in 0..MAX_STEPS {
         if bounces > MAX_BOUNCES {
@@ -321,12 +362,12 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
 
         if config.features.contains(Features::DISK_VOL) {
             let sample = disk_volume(p, config.disk.radius, config.disk.thickness);
-            r += attenuation * sample.emission * DELTA;
+            r += attenuation * sample.emission * h;
 
             if sample.distance > 0.0 {
                 // hit the disc
 
-                let absorbance = (-1.0 * DELTA * sample.distance).exp();
+                let absorbance = (-1.0 * h * sample.distance).exp();
                 if absorbance < rand() {
                     // change the direction of v but keep its magnitude
                     v = v.length() * reflect(v.normalize(), udir3());
@@ -347,11 +388,14 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
 
         let s = mat2x3(p, v);
 
-        let step = if config.features.contains(Features::RK4) {
+        let step = if config.features.contains(Features::ADAPTIVE) {
+            bogacki_shampine(s, &mut h)
+        } else if config.features.contains(Features::RK4) {
             rk4(s, h)
         } else {
             euler(s, h)
         };
+        // eprintln!("{h}");
 
         // update system
         p += step.x_axis;

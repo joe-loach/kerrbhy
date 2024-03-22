@@ -14,7 +14,7 @@ const DISK_VOL      = 1u << 1;
 const SKY_PROC      = 1u << 2;
 const AA            = 1u << 3;
 const RK4           = 1u << 4;
-const ADAPTIVE_RK4  = 1u << 5;
+const ADAPTIVE      = 1u << 5;
 const BLOOM         = 1u << 6;
 
 struct PushConstants {
@@ -112,14 +112,48 @@ fn rk4(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
     let k3 = ode(s + 0.5 * h * k2);
     let k4 = ode(s + h * k3);
     // calculate timestep
-    let step = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+    let delta = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+
+    return delta;
+}
+
+const H_MIN: f32 = 1e-8;
+const H_MAX: f32 = 1e-1;
+const ERR_TOLERANCE: f32 = 1e-5;
+
+/// Bogacki-Shampine method (adaptive step size)
+/// https://en.wikipedia.org/wiki/Bogacki%E2%80%93Shampine_method
+fn bogacki_shampine(s: mat2x3<f32>, h: ptr<function, f32>) -> mat2x3<f32> {
+    let h0 = *h;
+
+    // calculate coefficients
+    let k1 = ode(s);
+    let k2 = ode(s + 0.5 * h0 * k1);
+    let k3 = ode(s + 0.75 * h0 * k2);
+
+    // find step
+    let step = (2.0/9.0) * h0 * k1 + (1.0/3.0) * h0 * k2 + (4.0/9.0) * h0 * k3;
+
+    // calculate next state
+    let k4 = ode(s + step);
+
+    // calculate better estimate using k4
+    let better = (7.0/24.0) * h0 * k1 + (1.0/4.0) * h0 * k2 + (1.0/3.0) * h0 * k3 + (1.0/8.0) * h0 * k4;
+
+    // compute the error
+    let err = better - step; // difference between the two guesses
+    let err_mag = length(max(err.x, err.y)); // get the magnitude of the largest errors
+
+    // find the step change coefficient
+    let x = ERR_TOLERANCE * 0.5 / err_mag;
+    let dstep = pow(x, 0.5);
+
+    // update h and clamp within bounds
+    // https://en.wikipedia.org/wiki/Adaptive_step_size
+    (*h) = 0.9 * clamp((h0 * dstep), H_MIN, H_MAX);
 
     return step;
 }
-
-const H_MIN: f32 = 1e-6;
-const H_MAX: f32 = 1e-1;
-const ERR_GOAL: f32 = 1e-4;
 
 struct DiskInfo {
     // strength of the emissive color
@@ -182,15 +216,15 @@ fn sky(rd: vec3<f32>) -> vec3<f32> {
 }
 
 fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
+    var h = DELTA;
+
     var attenuation = vec3<f32>(1.0);
     var r = vec3<f32>(0.0);
 
-    var p = ro + (rand() * DELTA * rd);
+    var p = ro + (rand() * h * rd);
     var v = rd;
 
     var bounces = 0u;
-    var t = 0.0;
-    var h = DELTA;
 
     for (var i = 0u; i < MAX_STEPS; i++) {
         if bounces > MAX_BOUNCES {
@@ -208,12 +242,12 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
 
         if has_feature(DISK_VOL) {
             let sample = diskVolume(p);
-            r += attenuation * sample.emission * DELTA;
+            r += attenuation * sample.emission * h;
 
             if sample.distance > 0.0 {
                 // hit the disc
 
-                let absorbance = exp(-1.0 * DELTA * sample.distance);
+                let absorbance = exp(-1.0 * h * sample.distance);
                 if absorbance < rand() {
                     // change the direction of v but keep its magnitude
                     v = length(v) * reflect(normalize(v), udir3());
@@ -238,10 +272,12 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         // integrate
         var step = mat2x3f();
 
-        if has_feature(RK4) {
-            step = rk4(s, h);
+        if has_feature(ADAPTIVE) {
+            step = bogacki_shampine(s, &h);
+        } else if has_feature(RK4) {
+            step = rk4(s, DELTA);
         } else {
-            step = euler(s, h);
+            step = euler(s, DELTA);
         }
 
         // update system

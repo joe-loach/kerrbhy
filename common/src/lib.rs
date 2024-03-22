@@ -29,7 +29,7 @@ bitflags::bitflags! {
         const SKY_PROC      = 1 << 2;
         const AA            = 1 << 3;
         const RK4           = 1 << 4;
-        const ADAPTIVE_RK4  = 1 << 5;
+        const ADAPTIVE  = 1 << 5;
         const BLOOM         = 1 << 6;
     }
 }
