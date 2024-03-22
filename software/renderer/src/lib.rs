@@ -436,6 +436,10 @@ impl Renderer {
         let origin = view.translation.into();
         let res = Vec2::new(self.buffer.width() as f32, self.buffer.height() as f32);
 
+        // make the view is being transposed, the same as on the gpu
+        let view = self.config.camera.view().matrix3.transpose();
+        let view = glam::Affine3A::from_mat3(view.into());
+
         self.buffer.par_for_each(|coord| {
             let coord = if self.config.features.contains(Features::AA) {
                 aa_filter(coord)
@@ -444,6 +448,7 @@ impl Renderer {
             };
 
             let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
+            uv.y = -uv.y;
 
             if self.config.features.contains(Features::BLOOM) {
                 let r = rand();
