@@ -96,7 +96,7 @@ impl Mouse {
 
     pub fn clicked(&self, button: MouseButton) -> bool {
         self.button_states
-            .get(&MouseButton::Left)
+            .get(&button)
             .is_some_and(|&down| down)
     }
 
