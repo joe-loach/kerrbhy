@@ -3,8 +3,11 @@ use std::ops::{
     DerefMut,
 };
 
+/// A Renderpass.
 pub enum RenderPass<'a> {
+    /// A plain RenderPass.
     Wgpu(wgpu::RenderPass<'a>),
+    /// A profiled RenderPass.
     Profiled(profiler::gpu::OwningScope<'a, wgpu::RenderPass<'a>>),
 }
 
@@ -28,8 +31,11 @@ impl<'a> DerefMut for RenderPass<'a> {
     }
 }
 
+/// A ComputePass.
 pub enum ComputePass<'a> {
+    /// A plain ComputePass.
     Wgpu(wgpu::ComputePass<'a>),
+    /// A profiled ComputePass.
     Profiled(profiler::gpu::OwningScope<'a, wgpu::ComputePass<'a>>),
 }
 

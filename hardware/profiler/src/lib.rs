@@ -12,12 +12,17 @@ use wgpu_profiler::{
 
 #[must_use = "Stream result must be checked for failure"]
 pub enum StreamResult {
+    /// Stream uploaded successfully.
     Success,
+    /// No frame timings to upload.
     Empty,
+    /// Puffin is disabled, can't upload.
     Disabled,
+    /// Failed to upload Stream.
     Failure,
 }
 
+/// Keeps track of the delta duration between timings.
 struct Delta {
     first: Duration,
 }
@@ -177,6 +182,7 @@ fn write_timings(
 
     let (parent_scope, child_offset) = stream.begin_scope(|| offset + start, ids[*index], "");
 
+    // recurse through children too.
     for child in &result.nested_queries {
         *index += 1;
         write_timings(stream, child_offset, child, ids, timing, index);

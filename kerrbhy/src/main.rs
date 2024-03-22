@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use clap::Parser;
@@ -31,20 +31,39 @@ enum Renderer {
 
 #[derive(Parser, Debug, Clone)]
 struct Args {
+    /// The kind of renderer to use.
     renderer: RendererKind,
 
+    /// The width of the image to create.
     width: u32,
+    /// The height of the image to create.
     height: u32,
 
+    /// The number of samples to compute.
+    /// 
+    /// Must be greater than 0.
+    /// 
+    /// The higher the number, the more frames are produced and a higher quality image will be produced.
     #[clap(short, long, default_value = "1", value_parser=clap::value_parser!(u32).range(1..),)]
     samples: u32,
 
+    /// The config file to load.
+    /// 
+    /// For more interesting configs, save them in the simulator and load them here.
     #[clap(short, long)]
     config: Option<PathBuf>,
 
+    /// Saves the frame output to disk.
     #[clap(long)]
     save: bool,
 
+    /// Configures the output path of the frame on disk.
+    /// 
+    /// Defaults to `out.png`.
+    #[clap(long)]
+    output: Option<PathBuf>,
+
+    /// Creates and shows trace information.
     #[clap(long)]
     flamegraph: bool,
 }
@@ -67,6 +86,7 @@ fn renderer(ctx: &Context, config: Config, args: &Args) -> anyhow::Result<Render
     let renderer = match args.renderer {
         RendererKind::Hardware => {
             let mut renderer = HardwareRenderer::new(ctx);
+            // need to update the state with the correct config before computing
             renderer.update(args.width, args.height, config);
 
             let profiler = if args.flamegraph {
@@ -157,6 +177,7 @@ fn compute(args: &Args) -> anyhow::Result<()> {
         ..
     } = *args;
 
+    // load the supplied config
     let config = if let Some(path) = args.config.as_ref() {
         Config::load_from_path(path)?
     } else {
@@ -165,8 +186,10 @@ fn compute(args: &Args) -> anyhow::Result<()> {
         Config::default()
     };
 
+    // create our context
     let ctx = context()?;
 
+    // create the renderer
     let mut renderer = renderer(&ctx, config, args)?;
 
     // compute the image
@@ -183,18 +206,17 @@ fn compute(args: &Args) -> anyhow::Result<()> {
         }
     }
 
-    match renderer {
-        Renderer::Hardware { renderer, .. } => {
-            if args.save {
+    // save the frame if they requested it
+    if args.save {
+        match renderer {
+            Renderer::Hardware { renderer, .. } => {
                 let frame_encoder = ctx.device().create_command_encoder(&Default::default());
                 let bytes = renderer.into_frame(frame_encoder);
-                save_image(&bytes, width, height)?;
+                save_image(&bytes, width, height, args.output.as_deref())?;
             }
-        }
-        Renderer::Software(renderer) => {
-            if args.save {
+            Renderer::Software(renderer) => {
                 let bytes = renderer.into_frame();
-                save_image(&bytes, width, height)?;
+                save_image(&bytes, width, height, args.output.as_deref())?;
             }
         }
     }
@@ -202,10 +224,11 @@ fn compute(args: &Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn save_image(bytes: &[u8], width: u32, height: u32) -> anyhow::Result<()> {
+fn save_image(bytes: &[u8], width: u32, height: u32, path: Option<&Path>) -> anyhow::Result<()> {
     profiling::scope!("Saving image");
 
-    image::save_buffer("out.png", bytes, width, height, image::ColorType::Rgba8)?;
+    let path = path.unwrap_or_else(|| Path::new("out.png"));
+    image::save_buffer(path, bytes, width, height, image::ColorType::Rgba8)?;
 
     Ok(())
 }
@@ -253,12 +276,17 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let bundle = if args.flamegraph {
+        // if we're creating a flamegraph,
+        // we need to enable puffin and
+        // create a new server to send the information to `puffin_viewer`.
+
         puffin::set_scopes_on(true);
 
         let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
 
         let server = puffin_http::Server::new(&server_addr)?;
 
+        // open puffin viewer as a child process
         let viewer = std::process::Command::new("puffin_viewer")
             .spawn()
             .context("puffin_viewer has to be installed to see flamegraph")?;
@@ -268,9 +296,11 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
+    // start the computation
     compute(&args)?;
 
     if let Some((mut viewer, server)) = bundle {
+        // wait for the viewer to close after we've finished computation
         viewer.wait()?;
 
         drop(server);

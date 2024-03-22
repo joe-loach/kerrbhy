@@ -58,9 +58,10 @@ fn cos(v: Vec2) -> Vec2 {
     Vec2::new(v.x.cos(), v.y.cos())
 }
 
+// https://www.shadertoy.com/view/4djSRW
 fn hash22(p: Vec2) -> Vec2 {
     let mut p3 = (p.xyx() * Vec3::new(0.1031, 0.1030, 0.0973)).fract();
-    p3 += p3.dot(p3.yzx() + 19.19);
+    p3 += p3.dot(p3.yzx() + 33.33);
     ((p3.xx() + p3.yz()) * p3.zy()).fract()
 }
 
@@ -77,8 +78,7 @@ fn udir2() -> Vec2 {
     let u = rand(); // [0, 1]
     let r = TAU * u; // [0, 2pi] for trig
                      // convert to cartesian
-    let s = r.sin();
-    let c = r.cos();
+    let (s, c) = r.sin_cos();
     Vec2::new(s, c)
 }
 
@@ -103,8 +103,8 @@ fn nrand2(mean: Vec2, sigma: f32) -> Vec2 {
 }
 
 fn rotate(v: Vec2, theta: f32) -> Vec2 {
-    let s = theta.sin();
-    let c = theta.cos();
+    // 2d rotation without using a matrix
+    let (s, c) = theta.sin_cos();
     Vec2::new(v.x * c - v.y * s, v.x * s + v.y * c)
 }
 
@@ -180,6 +180,7 @@ fn noise3(p: Vec3) -> f32 {
     o4.y * d.y + o4.x * (1. - d.y)
 }
 
+// https://iquilezles.org/articles/fbm/
 fn fbm(p: Vec3, iter: u32) -> f32 {
     let mut value = 0.0;
     let mut accum = 0.0;
@@ -243,7 +244,7 @@ fn aa_filter(coord: Vec2) -> Vec2 {
     // region"
     let n = 0.5 * rand() + 0.5;
     let w = A - B * (2.0 * PI * n).cos() + C * (4.0 * PI * n).cos() - D * (6.0 * PI * n).cos();
-
+    // add the "smooth offset" to the coordinate
     coord + (udir2() * 2.0 * w)
 }
 
@@ -255,6 +256,7 @@ struct DiskInfo {
 }
 
 fn disk_volume(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
+    // define the bounds of the disk volume
     if p.xz().length_squared() > radius || p.y * p.y > thickness {
         return DiskInfo {
             emission: Vec3::ZERO,
@@ -318,6 +320,7 @@ fn procedural_sky(rd: Vec3) -> Vec3 {
     let mut intensity = 0.0;
 
     // create a grid of cells and sample radial points (stars)
+    // idea from https://www.shadertoy.com/view/ll3yDr
     for i in 0..=8 {
         let uv_s = uv * Vec2::splat(i as f32 + 600.0);
 
@@ -422,14 +425,20 @@ fn bogacki_shampine(s: Mat3, h: &mut f32) -> Mat3 {
 }
 
 fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
+    // our timestep, start at a low value
     let mut h = DELTA;
 
+    // color information
     let mut attenuation = Vec3::ONE;
     let mut r = Vec3::ZERO;
 
+    // add variation to our start point along the direction
     let mut p = ro + (rand() * h * rd);
+    // our inital velocity is just ray direction
     let mut v = rd;
 
+    // keep track of the number of bounces the light takes
+    // this is useful when integrating volumes
     let mut bounces = 0_u32;
 
     for _ in 0..MAX_STEPS {
@@ -439,10 +448,14 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
         }
 
         if p.length_squared() < BLACKHOLE_RADIUS * BLACKHOLE_RADIUS {
+            // light has entered the black hole...
+            // dont just return black, we might have gone through a volume to get here
             return r;
         }
 
         if p.length_squared() > SKYBOX_RADIUS * SKYBOX_RADIUS {
+            // we have hit the skybox
+            // no need to integrate anymore
             break;
         }
 
@@ -453,6 +466,8 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
             if sample.distance > 0.0 {
                 // hit the disc
 
+                // the equation for absorbance
+                // https://en.wikipedia.org/wiki/Absorbance#Beer-Lambert_law
                 let absorbance = (-1.0 * h * sample.distance).exp();
                 if absorbance < rand() {
                     // change the direction of v but keep its magnitude
@@ -464,6 +479,9 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
                 }
             }
         } else if config.features.contains(Features::DISK_SDF) {
+            // represent the disk as a cylinder
+            // it's much easier to see the entire volume of the disk this way,
+            // without any fancy volume and fbm
             let dist = disk_sdf(p, config.disk.thickness, config.disk.radius.sqrt());
 
             if dist <= 0.0 {
@@ -472,8 +490,11 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
             }
         }
 
+        // create state
         let s = mat2x3(p, v);
 
+        // integrate
+        // choose the method of integration
         let step = if config.features.contains(Features::ADAPTIVE) {
             bogacki_shampine(s, &mut h)
         } else if config.features.contains(Features::RK4) {
@@ -481,7 +502,6 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
         } else {
             euler(s, h)
         };
-        // eprintln!("{h}");
 
         // update system
         p += step.x_axis;
@@ -489,8 +509,10 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
     }
 
     if config.features.contains(Features::SKY_PROC) {
+        // procedurally create the skybox
         r += attenuation * procedural_sky(v.normalize());
     } else {
+        // sample the sky from a texture
         r += attenuation * sample_sky(sampler, stars, v.normalize());
     }
 
@@ -536,9 +558,16 @@ impl Renderer {
                 coord
             };
 
+            // calculate uv coordinates
             let mut uv = 2.0 * (coord - 0.5 * res) / f32::max(res.x, res.y);
 
             if self.config.features.contains(Features::BLOOM) {
+                // monte carlo bloom
+                // uses a guassian distribution centered around the current uv
+                // the sigma (variance) is "how far the pixel is offset" (chosen by random)
+                // this has the effect of creating a nice bloom effect when accumulation is on.
+                // this is much more performant than running a post rendering bloom pass,
+                // as we're using the path renderer to do this for us.
                 let r = rand();
                 if r < 0.10 {
                     uv = nrand2(uv, rand() * 0.015);
@@ -547,13 +576,17 @@ impl Renderer {
                 }
             }
 
+            // the ray origin
             let ro = view.transform_vector3(origin);
+            // the ray direction (multiplied by the fov factor 2 * FOV * 1/PI, which gives us 90 degrees = 1.0 factor)
             let rd = view
                 .transform_vector3((uv * 2.0 * fov * FRAC_1_PI).extend(-1.0))
                 .normalize();
 
+            // render using the ray information
             let color = render(ro, rd, self.sampler, &self.stars, &self.config);
 
+            // remove unused samples
             let color = if color.cmplt(Vec3::ZERO).any() || !color.is_finite() || color.is_nan() {
                 Vec3::ZERO
             } else {

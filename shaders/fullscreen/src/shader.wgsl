@@ -5,6 +5,9 @@ struct VertexOutput {
 
 @vertex
 fn vert(@builtin(vertex_index) index: u32) -> VertexOutput {
+    // creates a full screen triangle using clever bit manipulation
+    // the gpu then clips this automatically
+    // https://wallisc.github.io/rendering/2021/04/18/Fullscreen-Pass.html
     let uv = vec2<f32>(f32((index << 1) & 2), f32(index & 2));
 
     var out: VertexOutput;
@@ -21,6 +24,9 @@ var color_sampler: sampler;
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4<f32> {
+    // for the fragment shader:
+    // sample the input texture at the uv coordinate
+    // output the color with full alpha
     var uv = vec2<f32>(
         in.uv.x,
         1.0 - in.uv.y

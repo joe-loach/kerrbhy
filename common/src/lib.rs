@@ -23,6 +23,7 @@ bitflags::bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
+    /// List of runtime features for Renderers.
     pub struct Features: u32 {
         const DISK_SDF      = 1 << 0;
         const DISK_VOL      = 1 << 1;
@@ -36,29 +37,37 @@ bitflags::bitflags! {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Disk {
+    /// Radius of the disk
     pub radius: f32,
+    /// Thickness (height) of the disk
     pub thickness: f32,
+    /// The apparent color of the disk
     pub color: Vec3,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The camera used to control perspective of the rays fired from it.
 pub enum Camera {
     Orbit(OrbitCamera),
 }
 
 impl Camera {
+    /// The view matrix for the [`Cameras`](Camera) perspective.
     pub fn view(&self) -> Affine3A {
         match self {
             Camera::Orbit(cam) => cam.view(),
         }
     }
 
+    /// The field of view of the [`Camera`] in [`Radians`].
     pub fn fov(&self) -> Radians {
         match self {
             Camera::Orbit(cam) => cam.fov,
         }
     }
 
+    /// A mutable view to the [`Cameras`](Camera) field of view.
+    /// Allows you to change the fov at runtime.
     pub fn fov_mut(&mut self) -> &mut Radians {
         match self {
             Camera::Orbit(cam) => &mut cam.fov,
@@ -84,6 +93,9 @@ pub struct Config {
 }
 
 impl Config {
+    /// Load a config from a file.
+    /// 
+    /// Fails if the file cannot be read or parsed.
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, error::ConfigError> {
         let path = path.as_ref();
 
@@ -92,10 +104,14 @@ impl Config {
         Self::load(&contents)
     }
 
+    /// Loads a config file from a string.
     pub fn load(s: &str) -> Result<Self, error::ConfigError> {
         Ok(toml::from_str(s)?)
     }
 
+    /// Saves a config file to disk.
+    /// 
+    /// Fails if the toml couldn't be generated, or the contents couldn't be written.
     pub fn save(&self, writer: &mut impl std::io::Write) -> Result<(), error::ConfigError> {
         let toml = toml::to_string_pretty(self)?;
 
@@ -116,7 +132,7 @@ impl Default for Config {
                 3.3,
                 // bounds for the orbit
                 0.5..=3.5,
-                // target
+                // the center (where the black hole is)
                 Vec3::ZERO,
             )),
             disk: Default::default(),

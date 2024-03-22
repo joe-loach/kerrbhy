@@ -20,6 +20,7 @@ pub struct FrameBuffer {
 }
 
 impl FrameBuffer {
+    /// Create a new [`FrameBuffer`] of `width` and `height`.
     #[inline]
     pub fn new(width: u32, height: u32) -> Self {
         Self {
@@ -29,6 +30,9 @@ impl FrameBuffer {
         }
     }
 
+    /// Iterates through each pixel in the [`FrameBuffer`].
+    /// 
+    /// For each pixel, it calls a function (id, color) and expects you to return an updated color.
     #[inline]
     pub fn for_each(&mut self, f: impl Fn(UVec2, Vec4) -> Vec4) {
         for (x, y, p) in self.buffer.enumerate_pixels_mut() {
@@ -38,6 +42,9 @@ impl FrameBuffer {
         }
     }
 
+    /// Iterates through each pixel in the [`FrameBuffer`] in parallel.
+    /// 
+    /// For each pixel, it calls a function (id, color) and expects you to return an updated color.
     #[profiling::function]
     #[inline]
     pub fn par_for_each(&mut self, f: impl (Fn(UVec2, Vec4) -> Vec4) + Sync) {
@@ -51,14 +58,17 @@ impl FrameBuffer {
             });
     }
 
+    /// Width of the [`FrameBuffer`].
     pub fn width(&self) -> u32 {
         self.width
     }
 
+    /// Height of the [`FrameBuffer`].
     pub fn height(&self) -> u32 {
         self.height
     }
 
+    /// Converts this [`FrameBuffer`] into an array of bytes `[r, g, b, a]`.
     pub fn into_vec(self) -> Vec<u8> {
         use image::buffer::ConvertBuffer;
 

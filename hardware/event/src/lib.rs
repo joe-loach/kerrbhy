@@ -135,6 +135,7 @@ where
 
     let size = window.inner_size();
 
+    // create the surface configuration for the window
     let mut config = SurfaceConfiguration {
         desired_maximum_frame_latency: 2,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -154,10 +155,12 @@ where
 
     window.set_visible(true);
 
+    // create a timer used for timing deltas
     let mut timer = Timer::new();
 
     let mut dirty = false;
 
+    // start the event loop
     let mut running = true;
     timer.start();
 
@@ -168,6 +171,7 @@ where
             return;
         }
 
+        // create a state for this frame
         let mut state = State {
             device: &device,
             queue: &queue,
@@ -253,6 +257,7 @@ where
                             app.update(&mut state);
                         }
 
+                        // create a view into the surface texture
                         let target = frame.texture.create_view(&Default::default());
 
                         let mut encoder =
@@ -283,6 +288,7 @@ where
                 }
             }
             WEvent::AboutToWait => {
+                // constantly redraw
                 window.request_redraw();
             }
             _ => (),

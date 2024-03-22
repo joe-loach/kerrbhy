@@ -41,6 +41,9 @@ pub struct ContextBuilder {
 }
 
 impl ContextBuilder {
+    /// Create a new [`ContextBuilder`].
+    /// 
+    /// Can choose the features and limits of the [`Context`].
     pub fn new(
         features: impl FnOnce(&wgpu::Adapter) -> wgpu::Features + 'static,
         limits: wgpu::Limits,
@@ -53,6 +56,7 @@ impl ContextBuilder {
         }
     }
 
+    /// Add a [`Window`] to the [`Context`].
     pub fn with_window(self, window: WindowBuilder) -> Self {
         Self {
             window: Some(window),
@@ -60,10 +64,12 @@ impl ContextBuilder {
         }
     }
 
+    /// Returns `true` if the builder has an attached window.
     pub fn has_window(&self) -> bool {
         self.window.is_some()
     }
 
+    /// Creates the [`Context`].
     pub fn build<T: 'static>(
         self,
         event_loop: Option<&EventLoop<T>>,

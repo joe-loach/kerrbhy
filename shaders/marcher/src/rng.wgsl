@@ -13,9 +13,10 @@ fn seed_rng(p: vec2<u32>, r: vec2<u32>, s: u32) {
     );
 }
 
+// https://www.shadertoy.com/view/4djSRW
 fn hash22(p: vec2<f32>) -> vec2<f32> {
     var p3 = fract(p.xyx * vec3f(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yzx+19.19);
+    p3 += dot(p3, p3.yzx+33.33);
     return fract((p3.xx+p3.yz)*p3.zy);
 }
 
@@ -125,6 +126,7 @@ fn noise3(p: vec3f) -> f32 {
     return o4.y * d.y + o4.x * (1. - d.y);
 }
 
+// https://iquilezles.org/articles/fbm/
 fn fbm(p: vec3f, iter: u32) -> f32 {
     var value = 0.0;
     var accum = 0.0;

@@ -12,6 +12,7 @@ pub struct Texture<const DIM: u32> {
 }
 
 impl<const DIM: u32> Texture<DIM> {
+    /// Loads an Rgba texture from bytes in memory.
     #[profiling::function]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, image::ImageError> {
         assert!(DIM > 0 && DIM <= 2, "Incorrect dimensions");
@@ -78,13 +79,18 @@ impl EdgeMode {
 
 #[derive(Clone, Copy)]
 pub struct Sampler {
+    /// What filter is applied to each point.
     pub filter_mode: Filter,
+    /// What the sampler does at the edge of a texture
     pub edge_mode: EdgeMode,
 }
 
+/// Allows samplers to Sample [`Textures`](Texture) of dimension `D`, using different types of points.
 pub trait Sample<const D: u32> {
+    /// The type of query point.
     type Point;
 
+    /// Samples a [`Texture`] and returns the color at that point.
     fn sample(&self, tex: &Texture<D>, uv: Self::Point) -> Vec4;
 }
 

@@ -15,8 +15,14 @@ use crate::{
     RenderPass,
 };
 
+/// A CommandEncoder.
 pub enum Encoder<'a> {
+    /// A plain CommandEncoder
     Wgpu(&'a mut wgpu::CommandEncoder),
+    /// A profiled CommandEncoder.
+    /// 
+    /// All passes created from this are also profiled.
+    /// If you don't want this behaviour, use [`Self::inner`].
     Profiled(profiler::gpu::Scope<'a, wgpu::CommandEncoder>),
 }
 
@@ -33,6 +39,7 @@ impl<'a> From<&'a mut wgpu::CommandEncoder> for Encoder<'a> {
 }
 
 impl<'a> Encoder<'a> {
+    /// Creates a profiled encoder with a label.
     pub fn profiled(
         profiler: &'a profiler::gpu::GpuProfiler,
         enc: &'a mut wgpu::CommandEncoder,

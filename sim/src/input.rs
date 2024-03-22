@@ -34,6 +34,7 @@ impl Default for Mouse {
     }
 }
 
+#[allow(dead_code)]
 impl Mouse {
     pub const PIXELS_PER_LINE: f32 = 50.0;
 

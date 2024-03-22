@@ -40,10 +40,12 @@ var stars: texture_2d<f32>;
 var<push_constant> pc: PushConstants;
 
 fn has_feature(f: u32) -> bool {
+    // checks if the bits of f exist in features
     return (pc.features & f) == f;
 }
 
 fn rotate(v: vec2<f32>, theta: f32) -> vec2<f32> {
+    // 2d rotation without using a matrix
     let s = sin(theta);
     let c = cos(theta);
     return vec2<f32>(v.x * c - v.y * s, v.x * s + v.y * c);
@@ -167,6 +169,7 @@ fn diskVolume(p: vec3<f32>) -> DiskInfo {
     ret.emission = vec3<f32>(0.0);
     ret.distance = 0.0;
 
+    // define the bounds of the disk volume
     if dot(p.xz, p.xz) > pc.disk_radius || p.y * p.y > pc.disk_thickness {
         return ret;
     }
@@ -228,6 +231,7 @@ fn proceduralSky(rd: vec3<f32>) -> vec3<f32> {
     var intensity = 0.0;
 
     // create a grid of cells and sample radial points (stars)
+    // idea from https://www.shadertoy.com/view/ll3yDr
     for (var i = 0; i < 8; i += 1) {
         let uv_s = uv * vec2(f32(i) + 600.0);
 
@@ -253,14 +257,20 @@ fn proceduralSky(rd: vec3<f32>) -> vec3<f32> {
 }
 
 fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
+    // our timestep, start at a low value
     var h = DELTA;
 
+    // color information
     var attenuation = vec3<f32>(1.0);
     var r = vec3<f32>(0.0);
 
+    // add variation to our start point along the direction
     var p = ro + (rand() * h * rd);
+    // our inital velocity is just ray direction
     var v = rd;
 
+    // keep track of the number of bounces the light takes
+    // this is useful when integrating volumes
     var bounces = 0u;
 
     for (var i = 0u; i < MAX_STEPS; i++) {
@@ -270,10 +280,14 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         }
 
         if dot(p, p) < BLACKHOLE_RADIUS * BLACKHOLE_RADIUS {
+            // light has entered the black hole...
+            // dont just return black, we might have gone through a volume to get here
             return r;
         }
 
         if dot(p, p) > SKYBOX_RADIUS * SKYBOX_RADIUS {
+            // we have hit the skybox
+            // no need to integrate anymore
             break;
         }
 
@@ -284,6 +298,8 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
             if sample.distance > 0.0 {
                 // hit the disc
 
+                // the equation for absorbance
+                // https://en.wikipedia.org/wiki/Absorbance#Beer-Lambert_law
                 let absorbance = exp(-1.0 * h * sample.distance);
                 if absorbance < rand() {
                     // change the direction of v but keep its magnitude
@@ -295,6 +311,9 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
                 }
             }
         } else if has_feature(DISK_SDF) {
+            // represent the disk as a cylinder
+            // it's much easier to see the entire volume of the disk this way,
+            // without any fancy volume and fbm
             let dist = diskSdf(p, pc.disk_thickness, sqrt(pc.disk_radius));
 
             if dist <= 0.0 {
@@ -309,6 +328,7 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         // integrate
         var step = mat2x3f();
 
+        // choose the method of integration
         if has_feature(ADAPTIVE) {
             step = bogacki_shampine(s, &h);
         } else if has_feature(RK4) {
@@ -323,8 +343,10 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
     }
 
     if has_feature(SKY_PROC) {
+        // procedurally create the skybox
         r += attenuation * proceduralSky(normalize(v));
     } else {
+        // sample the sky from a texture
         r += attenuation * sampleSky(normalize(v));
     }
 
@@ -354,6 +376,12 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
 
     if has_feature(BLOOM) {
+        // monte carlo bloom
+        // uses a guassian distribution centered around the current uv
+        // the sigma (variance) is "how far the pixel is offset" (chosen by random)
+        // this has the effect of creating a nice bloom effect when accumulation is on.
+        // this is much more performant than running a post rendering bloom pass,
+        // as we're using the path renderer to do this for us.
         let r = rand();
         if r < 0.10 {
             uv = nrand2(uv, rand() * 0.015);
@@ -362,9 +390,13 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
+    // since we have to pass in the transform as a Mat4, we have to extend these vectors with a zero (to ignore translation)
+    // the ray origin
     let ro = (vec4<f32>(pc.origin, 0.0) * pc.transform).xyz;
+    // the ray direction (multiplied by the fov factor 2 * FOV * 1/PI, which gives us 90 degrees = 1.0 factor)
     let rd = normalize((vec4<f32>(uv * 2.0 * pc.fov * FRAC_1_PI, -1.0, 0.0) * pc.transform).xyz);
 
+    // render using the ray information
     var color = render(ro, rd);
 
     // remove unused samples

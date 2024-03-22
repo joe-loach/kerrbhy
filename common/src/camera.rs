@@ -16,6 +16,9 @@ use serde::{
 use crate::angle::Radians;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A Camera that orbits around a target.
+/// 
+/// Distance and position of the orbit can be controlled.
 pub struct OrbitCamera {
     /// fov of the camera
     pub fov: Radians,
@@ -32,6 +35,7 @@ pub struct OrbitCamera {
 }
 
 impl OrbitCamera {
+    /// Create a new [`OrbitCamera`].
     pub fn new(
         fov: impl Into<Radians>,
         radius: f32,
@@ -48,18 +52,21 @@ impl OrbitCamera {
         }
     }
 
+    /// The view matrix of the [`OrbitCamera`].
     pub fn view(&self) -> Affine3A {
         let eye = self.eye();
 
         Affine3A::look_at_lh(eye, self.target, Vec3::Y)
     }
 
+    /// Update the orbit position with `delta`.
     pub fn orbit(&mut self, delta: Vec2) {
         self.theta += delta.x;
         self.phi += delta.y;
         self.phi = self.phi.clamp(0.1, std::f32::consts::PI - 0.1);
     }
 
+    /// Zoom into or away from the target.
     pub fn zoom(&mut self, delta: f32) {
         let zoomed = self.radius + delta;
         if self.bounds.contains(&zoomed) {
@@ -67,6 +74,7 @@ impl OrbitCamera {
         }
     }
 
+    /// Get the position of the `eye` or `origin`.
     pub fn eye(&self) -> Vec3 {
         // get origin point in 3d space
         let (ts, tc) = f32::sin_cos(self.theta);
@@ -80,14 +88,17 @@ impl OrbitCamera {
         Vec3::new(x, y, z)
     }
 
+    /// Change the target of the [`OrbitCamera`].
     pub fn set_target(&mut self, target: Vec3) {
         self.target = target;
     }
 
+    /// Manually set phi, the "inclination" component.
     pub fn set_phi(&mut self, phi: f32) {
         self.phi = phi;
     }
 
+    /// Manually set theta, the "horizontal" component.
     pub fn set_theta(&mut self, theta: f32) {
         self.theta = theta;
     }

@@ -10,6 +10,7 @@ use rayon::{
     slice::ParallelSlice,
 };
 
+/// The Hardware [`Renderer`].
 pub struct Renderer {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
@@ -19,6 +20,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    /// Create a new [`Renderer`].
     pub fn new(ctx: &graphics::Context) -> Self {
         let device = ctx.device();
         let queue = ctx.queue();
@@ -34,24 +36,29 @@ impl Renderer {
         }
     }
 
+    /// A flag to determine if the [`Renderer`] needs to re-render.
     pub fn must_render(&self) -> bool {
         self.dirty
     }
 
+    /// The texture view that the [`Renderer`] is rendering to.
     pub fn view(&self) -> wgpu::TextureView {
         self.marcher.view()
     }
 
+    /// Update the state of the [`Renderer`].
     #[profiling::function]
     pub fn update(&mut self, width: u32, height: u32, cfg: Config) {
         self.dirty = self.marcher.update(width, height, cfg);
     }
 
+    /// Submit commands to compute.
     #[profiling::function]
     pub fn compute(&mut self, encoder: &mut Encoder) {
         self.marcher.record(encoder);
     }
 
+    /// Convert the state of the [`Renderer`] into bytes representing the frame output.
     #[profiling::function]
     pub fn into_frame(self, mut encoder: wgpu::CommandEncoder) -> Vec<u8> {
         let (frame, row, aligned_row) = copy_texture_to_buffer(
@@ -99,6 +106,7 @@ impl Renderer {
     }
 }
 
+/// Copies a texture to a buffer with the correct alignments.
 #[profiling::function]
 fn copy_texture_to_buffer(
     device: &wgpu::Device,
