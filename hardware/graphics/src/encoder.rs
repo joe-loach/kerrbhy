@@ -36,7 +36,7 @@ impl<'a> Encoder<'a> {
     pub fn profiled(
         profiler: &'a profiler::gpu::GpuProfiler,
         enc: &'a mut wgpu::CommandEncoder,
-        label: &str,
+        label: impl Into<String>,
         device: &Device,
     ) -> Self {
         Encoder::Profiled(profiler.scope(label, enc, device))
