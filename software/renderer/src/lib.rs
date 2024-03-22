@@ -12,6 +12,7 @@ use glam::{
     mat3,
     Mat3,
     Vec2,
+    Vec2Swizzles as _,
     Vec3,
     Vec3Swizzles as _,
     Vec4,
@@ -55,6 +56,12 @@ fn sin(v: Vec2) -> Vec2 {
 
 fn cos(v: Vec2) -> Vec2 {
     Vec2::new(v.x.cos(), v.y.cos())
+}
+
+fn hash22(p: Vec2) -> Vec2 {
+    let mut p3 = (p.xyx() * Vec3::new(0.1031, 0.1030, 0.0973)).fract();
+    p3 += p3.dot(p3.yzx() + 19.19);
+    ((p3.xx() + p3.yz()) * p3.zy()).fract()
 }
 
 fn rand() -> f32 {
@@ -101,11 +108,54 @@ fn rotate(v: Vec2, theta: f32) -> Vec2 {
     Vec2::new(v.x * c - v.y * s, v.x * s + v.y * c)
 }
 
-fn mod289(x: Vec4) -> Vec4 {
+fn mod289_2(x: Vec2) -> Vec2 {
     x - (x * (1.0 / 289.0)).floor() * 289.0
 }
+fn mod289_3(x: Vec3) -> Vec3 {
+    x - (x * (1.0 / 289.0)).floor() * 289.0
+}
+fn mod289_4(x: Vec4) -> Vec4 {
+    x - (x * (1.0 / 289.0)).floor() * 289.0
+}
+fn perm3(x: Vec3) -> Vec3 {
+    mod289_3(((x * 34.0) + 1.0) * x)
+}
 fn perm4(x: Vec4) -> Vec4 {
-    mod289(((x * 34.0) + 1.0) * x)
+    mod289_4(((x * 34.0) + 1.0) * x)
+}
+
+fn step(edge: f32, x: f32) -> f32 {
+    if x < edge {
+        0.0
+    } else {
+        1.0
+    }
+}
+
+// Optimized Ashima SimplexNoise2D
+// https://www.shadertoy.com/view/4sdGD8
+#[allow(clippy::excessive_precision)]
+fn snoise2(v: Vec2) -> f32 {
+    let mut i = ((v.x + v.y) * 0.36602540378443 + v).floor();
+    let x0 = v + (i.x + i.y) * 0.211324865405187 - i;
+    let s = step(x0.x, x0.y);
+    let j = Vec2::new(1.0 - s, s);
+    let x1 = x0 - j + 0.211324865405187;
+    let x3 = x0 - 0.577350269189626;
+    i = mod289_2(i);
+    let p = perm3(perm3(i.y + Vec3::new(0.0, j.y, 1.0)) + i.x + Vec3::new(0.0, j.x, 1.0));
+    let x = 2.0 * (p * 0.024390243902439).fract() - 1.0;
+    let h = x.abs() - 0.5;
+    let a0 = x - (x + 0.5).floor();
+    let m_sq = Vec3::new(
+        x0.x * x0.x + x0.y * x0.y,
+        x1.x * x1.x + x1.y * x1.y,
+        x3.x * x3.x + x3.y * x3.y,
+    );
+    let m = (0.5 - m_sq).max(Vec3::ZERO);
+    0.5 + 65.0
+        * (m * m * m * m * (-0.85373472095314 * (a0 * a0 + h * h) + 1.79284291400159))
+            .dot(a0 * Vec3::new(x0.x, x1.x, x3.x) + h * Vec3::new(x0.y, x1.y, x3.y))
 }
 
 fn noise3(p: Vec3) -> f32 {
@@ -242,17 +292,54 @@ fn disk_sdf(p: Vec3, h: f32, r: f32) -> f32 {
     d.x.clamp(d.y, 0.0) + d.max(Vec2::ZERO).length()
 }
 
-fn sky(sampler: Sampler, stars: &Texture2D, rd: Vec3) -> Vec3 {
+fn sample_sky(sampler: Sampler, stars: &Texture2D, rd: Vec3) -> Vec3 {
     // https://en.wikipedia.org/wiki/Azimuth
     let azimuth = f32::atan2(rd.z, rd.x);
     let inclination = f32::asin(-rd.y);
 
-    let coord = Vec2::new(
+    let uv = Vec2::new(
         0.5 - (azimuth * FRAC_1_2PI),
         0.5 - (inclination * FRAC_1_PI),
     );
 
-    sampler.sample(stars, coord).xyz()
+    sampler.sample(stars, uv).xyz()
+}
+
+fn procedural_sky(rd: Vec3) -> Vec3 {
+    // https://en.wikipedia.org/wiki/Azimuth
+    let azimuth = f32::atan2(rd.z, rd.x);
+    let inclination = f32::asin(-rd.y);
+
+    let uv = Vec2::new(
+        0.5 - (azimuth * FRAC_1_2PI),
+        0.5 - (inclination * FRAC_1_PI),
+    );
+
+    let mut intensity = 0.0;
+
+    // create a grid of cells and sample radial points (stars)
+    for i in 0..=8 {
+        let uv_s = uv * Vec2::splat(i as f32 + 600.0);
+
+        let cells = (uv_s + (i * 1199) as f32).floor();
+        let hash = (hash22(cells) * 2.0 - 1.0) * 1.5 * 2.0;
+        let hash_magnitude = 1.0 - hash.length();
+
+        let grid = uv_s.fract() - 0.5;
+
+        let radius = (hash_magnitude - 0.5).clamp(0.0, 1.0);
+        let mut radial_gradient = (grid - hash).length() / radius;
+        radial_gradient = (1.0 - radial_gradient).clamp(0.0, 1.0);
+        radial_gradient *= radial_gradient;
+
+        intensity += radial_gradient;
+    }
+
+    let t = snoise2(uv * 2000.0);
+    //http://hyperphysics.phy-astr.gsu.edu/hbase/Starlog/staspe.html
+    let color = xyz2rgb(blackbody_xyz((10000.0 * t * t) + 4000.0));
+
+    intensity * color
 }
 
 fn gravitational_field(p: Vec3) -> Vec3 {
@@ -296,8 +383,8 @@ fn rk4(s: Mat3, h: f32) -> Mat3 {
 /// Bogacki-Shampine method
 /// https://en.wikipedia.org/wiki/Bogacki%E2%80%93Shampine_method
 fn bogacki_shampine(s: Mat3, h: &mut f32) -> Mat3 {
-    const A: [f32; 3] = [2.0/9.0, 1.0/3.0, 4.0/9.0];
-    const B: [f32; 4] = [7.0/24.0, 1.0/4.0, 1.0/3.0, 1.0/8.0];
+    const A: [f32; 3] = [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0];
+    const B: [f32; 4] = [7.0 / 24.0, 1.0 / 4.0, 1.0 / 3.0, 1.0 / 8.0];
 
     const H_MIN: f32 = 1e-8;
     const H_MAX: f32 = 1e-1;
@@ -403,8 +490,9 @@ fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Conf
     }
 
     if config.features.contains(Features::SKY_PROC) {
+        r += attenuation * procedural_sky(v.normalize());
     } else {
-        r += attenuation * sky(sampler, stars, v.normalize());
+        r += attenuation * sample_sky(sampler, stars, v.normalize());
     }
 
     r

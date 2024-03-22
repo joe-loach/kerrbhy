@@ -202,17 +202,54 @@ fn diskSdf(p: vec3<f32>, h: f32, r: f32) -> f32 {
     return min(max(d.x,d.y),0.0) + length(max(d, vec2<f32>(0.0)));
 }
 
-fn sky(rd: vec3<f32>) -> vec3<f32> {
+fn sampleSky(rd: vec3<f32>) -> vec3<f32> {
     // https://en.wikipedia.org/wiki/Azimuth
     let azimuth = atan2(rd.z, rd.x);
     let inclination = asin(-rd.y);
 
-    let coord = vec2<f32>(
+    let uv = vec2<f32>(
         0.5 - (azimuth * FRAC_1_2PI),
         0.5 - (inclination * FRAC_1_PI)
     );
 
-    return textureSampleLevel(stars, star_sampler, coord, 0.0).xyz;
+    return textureSampleLevel(stars, star_sampler, uv, 0.0).xyz;
+}
+
+fn proceduralSky(rd: vec3<f32>) -> vec3<f32> {
+    // https://en.wikipedia.org/wiki/Azimuth
+    let azimuth = atan2(rd.z, rd.x);
+    let inclination = asin(-rd.y);
+
+    let uv = vec2<f32>(
+        0.5 - (azimuth * FRAC_1_2PI),
+        0.5 - (inclination * FRAC_1_PI)
+    );
+
+    var intensity = 0.0;
+
+    // create a grid of cells and sample radial points (stars)
+    for (var i = 0; i < 8; i += 1) {
+        let uv_s = uv * vec2(f32(i) + 600.0);
+
+        let cells = floor(uv_s + f32(i * 1199));
+        let hash = (hash22(cells) * 2.0 - 1.0) * 1.5 * 2.0;
+        let hash_magnitude = 1.0-length(hash);
+
+        let grid = fract(uv_s) - 0.5;
+
+        let radius = clamp(hash_magnitude - 0.5, 0.0, 1.0);
+        var radialGradient = length(grid - hash) / radius;
+        radialGradient = clamp(1.0 - radialGradient, 0.0, 1.0);
+        radialGradient *= radialGradient;
+
+        intensity += radialGradient;
+    }
+
+    let t = snoise2(uv * 2000.0);
+    //http://hyperphysics.phy-astr.gsu.edu/hbase/Starlog/staspe.html
+    let color = xyz2rgb(blackbodyXYZ((10000.0 * t * t) + 4000.0));
+
+    return intensity * color;
 }
 
 fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
@@ -286,8 +323,9 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
     }
 
     if has_feature(SKY_PROC) {
+        r += attenuation * proceduralSky(normalize(v));
     } else {
-        r += attenuation * sky(normalize(v));
+        r += attenuation * sampleSky(normalize(v));
     }
 
     return r;

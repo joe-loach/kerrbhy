@@ -13,6 +13,12 @@ fn seed_rng(p: vec2<u32>, r: vec2<u32>, s: u32) {
     );
 }
 
+fn hash22(p: vec2<f32>) -> vec2<f32> {
+    var p3 = fract(p.xyx * vec3f(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx+19.19);
+    return fract((p3.xx+p3.yz)*p3.zy);
+}
+
 // https://www.pcg-random.org/
 // http://www.jcgt.org/published/0009/03/02/
 fn pcg4d(p: vec4u) -> vec4u {
@@ -72,8 +78,30 @@ fn nrand2(mean: vec2<f32>, sigma: f32) -> vec2<f32> {
     return mean + sigma * g;
 }
 
-fn mod289(x: vec4f) -> vec4f { return x - floor(x * (1. / 289.)) * 289.; }
-fn perm4(x: vec4f) -> vec4f { return mod289(((x * 34.) + 1.) * x); }
+fn mod289_2(x: vec2f) -> vec2f { return x - floor(x * (1. / 289.)) * 289.; }
+fn mod289_3(x: vec3f) -> vec3f { return x - floor(x * (1. / 289.)) * 289.; }
+fn mod289_4(x: vec4f) -> vec4f { return x - floor(x * (1. / 289.)) * 289.; }
+fn perm3(x: vec3f) -> vec3f { return mod289_3(((x * 34.) + 1.) * x); }
+fn perm4(x: vec4f) -> vec4f { return mod289_4(((x * 34.) + 1.) * x); }
+
+// Optimized Ashima SimplexNoise2D
+// https://www.shadertoy.com/view/4sdGD8
+fn snoise2(v: vec2f) -> f32 {
+    var i = floor((v.x + v.y) * 0.36602540378443 + v);
+    let x0 = v + (i.x + i.y) * 0.211324865405187 - i;
+    let s = step(x0.x, x0.y);
+    let j = vec2f(1.0 - s, s);
+    let x1 = x0 - j + 0.211324865405187; 
+    let x3 = x0 - 0.577350269189626;
+    i = mod289_2(i);
+    let p = perm3(perm3(i.y + vec3f(0.0, j.y, 1.0)) + i.x + vec3f(0.0, j.x, 1.0));
+    let x = 2.0 * fract(p * 0.024390243902439) - 1.0;
+    let h = abs(x) - 0.5;
+    let a0 = x - floor(x + 0.5);
+    let mSq = vec3f(x0.x*x0.x + x0.y*x0.y, x1.x*x1.x + x1.y*x1.y, x3.x*x3.x + x3.y*x3.y);
+    let m = max(0.5 - mSq, vec3f(0.0));
+    return 0.5 + 65.0 * dot(m*m*m*m * (-0.85373472095314 * (a0*a0 + h*h) + 1.79284291400159), a0 * vec3f(x0.x, x1.x, x3.x) + h * vec3f(x0.y, x1.y, x3.y));
+}
 
 fn noise3(p: vec3f) -> f32 {
     let a = floor(p);
