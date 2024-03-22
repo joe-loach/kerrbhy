@@ -112,9 +112,9 @@ fn rk4(s: mat2x3<f32>, h: f32) -> mat2x3<f32> {
     let k3 = ode(s + 0.5 * h * k2);
     let k4 = ode(s + h * k3);
     // calculate timestep
-    let delta = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+    let step = h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4);
 
-    return delta;
+    return step;
 }
 
 const H_MIN: f32 = 1e-8;
@@ -352,8 +352,6 @@ fn comp(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // calculate uv coordinates
     var uv = 2.0 * (coord - 0.5 * res) / max(res.x, res.y);
-    // switch y because wgpu uses strange texture coords
-    uv.y = -uv.y;
 
     if has_feature(BLOOM) {
         let r = rand();
