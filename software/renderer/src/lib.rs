@@ -97,7 +97,7 @@ fn udir3() -> Vec3 {
 fn nrand2(mean: Vec2, sigma: f32) -> Vec2 {
     let z = rand2();
     // https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
-    let g = (-2.0 * z.x.log10()).sqrt() * Vec2::new((TAU * z.y).cos(), (TAU * z.y).sin());
+    let g = (-2.0 * z.x.ln()).sqrt() * Vec2::new((TAU * z.y).cos(), (TAU * z.y).sin());
 
     mean + sigma * g
 }
@@ -291,7 +291,7 @@ fn disk_volume(p: Vec3, radius: f32, thickness: f32) -> DiskInfo {
 // https://www.shadertoy.com/view/wdXGDr
 fn disk_sdf(p: Vec3, h: f32, r: f32) -> f32 {
     let d = Vec2::new(p.xz().length(), p.y).abs() - Vec2::new(r, h);
-    d.x.clamp(d.y, 0.0) + d.max(Vec2::ZERO).length()
+    d.x.max(d.y).min(0.0) + d.max(Vec2::ZERO).length()
 }
 
 fn sample_sky(sampler: Sampler, stars: &Texture2D, rd: Vec3) -> Vec3 {
@@ -427,6 +427,9 @@ fn bogacki_shampine(s: Mat3, h: &mut f32) -> Mat3 {
 fn render(ro: Vec3, rd: Vec3, sampler: Sampler, stars: &Texture2D, config: &Config) -> Vec3 {
     // our timestep, start at a low value
     let mut h = DELTA;
+    if config.features.contains(Features::RK4) {
+        h *= 1.5;
+    }
 
     // color information
     let mut attenuation = Vec3::ONE;
@@ -523,7 +526,7 @@ impl Renderer {
     #[profiling::function]
     pub fn new(width: u32, height: u32, config: crate::Config) -> Self {
         let sampler = Sampler {
-            filter_mode: Filter::Linear,
+            filter_mode: Filter::Nearest,
             edge_mode: EdgeMode::Wrap,
         };
         let stars =

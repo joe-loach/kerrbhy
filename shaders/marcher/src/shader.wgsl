@@ -259,6 +259,9 @@ fn proceduralSky(rd: vec3<f32>) -> vec3<f32> {
 fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
     // our timestep, start at a low value
     var h = DELTA;
+    if has_feature(RK4) {
+        h *= 1.5;
+    }
 
     // color information
     var attenuation = vec3<f32>(1.0);
@@ -332,9 +335,9 @@ fn render(ro: vec3<f32>, rd: vec3<f32>) -> vec3<f32> {
         if has_feature(ADAPTIVE) {
             step = bogacki_shampine(s, &h);
         } else if has_feature(RK4) {
-            step = rk4(s, DELTA);
+            step = rk4(s, h);
         } else {
-            step = euler(s, DELTA);
+            step = euler(s, h);
         }
 
         // update system

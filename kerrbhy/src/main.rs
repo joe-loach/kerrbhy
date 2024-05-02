@@ -221,6 +221,8 @@ fn compute(args: &Args) -> anyhow::Result<()> {
         }
     }
 
+    profiling::finish_frame!();
+
     Ok(())
 }
 
